@@ -3,14 +3,50 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const startMenu = document.getElementById('start-menu');
 const startButton = document.getElementById('start-button');
+const settingsButton = document.getElementById('settings-button');
+const settingsScreen = document.getElementById('settings-screen');
+const backButton = document.getElementById('back-button');
+const musicVolumeSlider = document.getElementById('music-volume');
+const sfxVolumeSlider = document.getElementById('sfx-volume');
+const pauseMenu = document.getElementById('pause-menu');
+const resumeButton = document.getElementById('resume-button');
+const mainMenuButton = document.getElementById('main-menu-button');
+const ingamePauseButton = document.getElementById('ingame-pause-button');
 
 let gameRunning = false;
+let paused = false;
+let animationFrameId = null;
+
+// --- Audio Setup ---
+let musicVolume = 0.5;
+let sfxVolume = 0.5;
+
 let backgroundMusic = new Audio('music/background_music.mp3');
 backgroundMusic.loop = true;
+backgroundMusic.volume = musicVolume;
 
-// Sound Effects
+// Sound Effects - Apply initial volume
 const jumpSounds = [new Audio('music/jump1.ogg'), new Audio('music/jump2.ogg')];
 const scoreSounds = [new Audio('music/score1.ogg'), new Audio('music/score2.ogg')];
+jumpSounds.forEach(sound => sound.volume = sfxVolume);
+scoreSounds.forEach(sound => sound.volume = sfxVolume);
+
+// Function to update SFX volume
+function setSfxVolume(volume) {
+    sfxVolume = volume;
+    jumpSounds.forEach(sound => sound.volume = sfxVolume);
+    scoreSounds.forEach(sound => sound.volume = sfxVolume);
+}
+
+// Function to update Music volume
+function setMusicVolume(volume) {
+    musicVolume = volume;
+    backgroundMusic.volume = musicVolume;
+}
+
+// Initialize sliders
+musicVolumeSlider.value = musicVolume;
+sfxVolumeSlider.value = sfxVolume;
 
 // Game dimensions (adjust as needed)
 canvas.width = 800;
@@ -66,12 +102,16 @@ const keys = {
     ArrowRight: false,
     KeyA: false,
     KeyD: false,
-    Space: false
+    Space: false,
+    Escape: false
 };
 
 window.addEventListener('keydown', (e) => {
     if (keys.hasOwnProperty(e.code)) {
         keys[e.code] = true;
+        if (e.code === 'Escape' && gameRunning) {
+            togglePause();
+        }
     }
 });
 
@@ -99,31 +139,28 @@ function loadSprites() {
             };
             img.onerror = () => {
                 console.error(`Failed to load sprite: ${name}.png`);
-                // Handle error - maybe use fallback shapes
                 loadedCount++;
-                 if (loadedCount === spriteNames.length) {
-                    resolve(); // Still resolve so game can potentially start
+                if (loadedCount === spriteNames.length) {
+                    resolve();
                 }
             };
         });
     });
 }
 
-// --- Game Logic Functions --- (will be filled in next)
+// --- Game Logic Functions ---
 
 function update() {
-    if (!gameRunning) return;
-    // Player movement
+    if (!gameRunning || paused) return;
+
     handleInput();
 
-    // Apply physics
     player.velocityY += player.gravity;
     player.x += player.velocityX;
     player.y += player.velocityY;
 
-    player.isOnGround = false; // Assume not on ground until collision check
+    player.isOnGround = false;
 
-    // Collision detection (Platforms)
     platforms.forEach(platform => {
         if (
             player.x < platform.x + platform.width &&
@@ -131,19 +168,15 @@ function update() {
             player.y < platform.y + platform.height &&
             player.y + player.height > platform.y
         ) {
-            // Check for vertical collision (landing on top)
             if (player.velocityY > 0 && player.y + player.height - player.velocityY <= platform.y) {
                 player.y = platform.y - player.height;
                 player.velocityY = 0;
                 player.isJumping = false;
                 player.isOnGround = true;
-            } 
-            // Add collision checks for sides and bottom if needed
-            // else if (collision from sides or bottom)
+            }
         }
     });
 
-    // Keep player within canvas bounds (horizontal)
     if (player.x < 0) {
         player.x = 0;
     }
@@ -151,16 +184,14 @@ function update() {
         player.x = canvas.width - player.width;
     }
 
-    // Check water collision
     if (
         player.x < water.x + water.width &&
         player.x + player.width > water.x &&
-        player.y + player.height > water.y // Only need to check if bottom hits water
+        player.y + player.height > water.y
     ) {
         gameOver("Jiji got wet! Game over!");
     }
 
-    // Check collectible collision
     collectibles.forEach((item, index) => {
         if (!item.collected &&
             player.x < item.x + item.width &&
@@ -169,14 +200,12 @@ function update() {
             player.y + player.height > item.y
         ) {
             item.collected = true;
-            score += (item.type === 'shell' ? 10 : 20); // Example scoring
-            // Play a random score sound
+            score += (item.type === 'shell' ? 10 : 20);
             const randomScoreSound = scoreSounds[Math.floor(Math.random() * scoreSounds.length)];
-            randomScoreSound.play().catch(e => console.error("Error playing score sound:", e)); // Added catch for potential errors
+            randomScoreSound.play().catch(e => console.error("Error playing score sound:", e));
         }
     });
 
-    // Update player animation frame
     updateAnimation();
 }
 
@@ -191,89 +220,76 @@ function handleInput() {
         player.facingRight = true;
     }
 
-    // Jumping
     if (keys.Space && !player.isJumping && player.isOnGround) {
         player.velocityY = -player.jumpStrength;
         player.isJumping = true;
         player.isOnGround = false;
-        // Play a random jump sound
         const randomJumpSound = jumpSounds[Math.floor(Math.random() * jumpSounds.length)];
-        randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e)); // Added catch for potential errors
+        randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e));
     }
 }
 
 function updateAnimation() {
-    if (player.velocityX !== 0 && player.isOnGround) { // Walking animation
+    if (player.velocityX !== 0 && player.isOnGround) {
         player.frameCount++;
         if (player.frameCount >= player.frameDelay) {
             player.frameCount = 0;
             player.currentFrame = (player.currentFrame + 1) % player.walkFrames.length;
         }
-    } else if (!player.isOnGround) { // Jumping/Falling animation
-        // Use walk2.png for air time
-        player.currentFrame = 1; // Index of 'walk2' in walkFrames
-    } else { // Idle animation (optional - could use sit1/sit2 later)
-        // For now, just use the first frame when idle
-         player.currentFrame = 0; // Or maybe a specific idle frame index if added
-         player.frameCount = 0;
+    } else if (!player.isOnGround) {
+        player.currentFrame = 1;
+    } else {
+        player.currentFrame = 0;
+        player.frameCount = 0;
     }
 }
 
-
 function draw() {
-    if (!gameRunning) return;
+    if (!gameRunning && !paused) return;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw background (replace with image later if desired)
-    ctx.fillStyle = '#87CEEB'; // Sky blue
+    ctx.fillStyle = '#87CEEB';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw platforms
-    ctx.fillStyle = '#A0522D'; // Brown
-    platforms.forEach(platform => {
-        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-    });
-
-    // Draw water
-    ctx.fillStyle = '#1E90FF'; // Dodger blue
-    ctx.fillRect(water.x, water.y, water.width, water.height);
-
-    // Draw player
-    drawPlayer();
-
-    // Draw collectibles
-    collectibles.forEach(item => {
-        if (!item.collected) {
-            if (item.type === 'shell') {
-                ctx.fillStyle = '#FFF8DC'; // Cornsilk (shell color)
-                // Simple shell shape (replace with image later)
-                ctx.beginPath();
-                ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 3, 0, 0, 2 * Math.PI);
-                ctx.fill();
-            } else if (item.type === 'fish') {
-                ctx.fillStyle = '#FF6347'; // Tomato (fish color)
-                // Simple fish shape (replace with image later)
-                ctx.beginPath();
-                ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 2, Math.PI / 4, 0, 2 * Math.PI);
-                ctx.fill();
-                // Add a simple tail
-                ctx.beginPath();
-                ctx.moveTo(item.x, item.y + item.height / 2);
-                ctx.lineTo(item.x - 10, item.y);
-                ctx.lineTo(item.x - 10, item.y + item.height);
-                ctx.closePath();
-                ctx.fill();
+    if (!paused) {
+        ctx.fillStyle = '#A0522D';
+        platforms.forEach(platform => {
+            ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        });
+        ctx.fillStyle = '#1E90FF';
+        ctx.fillRect(water.x, water.y, water.width, water.height);
+        drawPlayer();
+        collectibles.forEach(item => {
+            if (!item.collected) {
+                if (item.type === 'shell') {
+                    ctx.fillStyle = '#FFF8DC';
+                    ctx.beginPath();
+                    ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 3, 0, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else if (item.type === 'fish') {
+                    ctx.fillStyle = '#FF6347';
+                    ctx.beginPath();
+                    ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 2, Math.PI / 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(item.x, item.y + item.height / 2);
+                    ctx.lineTo(item.x - 10, item.y);
+                    ctx.lineTo(item.x - 10, item.y + item.height);
+                    ctx.closePath();
+                    ctx.fill();
+                }
             }
-        }
-    });
-
-    // Draw score
-    ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText(`Score: ${score}`, 10, 30);
-
+        });
+    } else {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = '48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 50);
+    }
+    drawScore();
 }
 
 function drawPlayer() {
@@ -281,34 +297,69 @@ function drawPlayer() {
     const sprite = player.sprites[frameName];
 
     if (sprite) {
-        ctx.save(); // Save the current context state
+        ctx.save();
         if (!player.facingRight) {
-            // Flip the sprite horizontally if facing left
             ctx.translate(player.x + player.width, player.y);
             ctx.scale(-1, 1);
             ctx.drawImage(sprite, 0, 0, player.width, player.height);
         } else {
             ctx.drawImage(sprite, player.x, player.y, player.width, player.height);
         }
-        ctx.restore(); // Restore the context state
+        ctx.restore();
     } else {
-        // Fallback: Draw a rectangle if sprite not loaded
-        ctx.fillStyle = 'purple'; // Jiji's color!
+        ctx.fillStyle = 'purple';
         ctx.fillRect(player.x, player.y, player.width, player.height);
     }
 }
-
 
 function gameLoop() {
     update();
     draw();
     if (gameRunning) {
-        requestAnimationFrame(gameLoop);
+        animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
 
 function startGame() {
-    // Reset game state
+    resetGameState();
+
+    gameRunning = true;
+    paused = false;
+    startMenu.style.display = 'none';
+    settingsScreen.style.display = 'none';
+    pauseMenu.style.display = 'none';
+    canvas.style.display = 'block';
+    ingamePauseButton.style.display = 'block';
+
+    backgroundMusic.currentTime = 0;
+    backgroundMusic.play().catch(e => console.error("Error playing background music:", e));
+
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+    }
+    loadSprites().then(() => {
+        animationFrameId = requestAnimationFrame(gameLoop);
+    });
+}
+
+function gameOver(message) {
+    gameRunning = false;
+    paused = false;
+    backgroundMusic.pause();
+    ingamePauseButton.style.display = 'none';
+    pauseMenu.style.display = 'none';
+
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+
+    console.log(message);
+    alert(message);
+    goToMainMenu();
+}
+
+function resetGameState() {
     player.x = 50;
     player.y = canvas.height - 100;
     player.velocityX = 0;
@@ -317,55 +368,87 @@ function startGame() {
     player.isOnGround = true;
     player.currentFrame = 0;
     player.frameCount = 0;
+    player.facingRight = true;
+
     score = 0;
+
     collectibles.forEach(item => item.collected = false);
 
-    // Hide start menu, show canvas
-    startMenu.style.display = 'none';
-    canvas.style.display = 'block';
-    gameRunning = true;
-    
-    // Start music (check if already playing/handle potential errors)
-    backgroundMusic.play().catch(e => console.error("Error playing music:", e));
-
-    // Start the game loop
-    gameLoop();
+    for (const key in keys) {
+        keys[key] = false;
+    }
 }
 
-function gameOver(message) {
+function goToMainMenu() {
     gameRunning = false;
+    paused = false;
     backgroundMusic.pause();
-    backgroundMusic.currentTime = 0; // Reset music
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '40px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(message, canvas.width / 2, canvas.height / 2 - 30);
-    ctx.font = '20px Arial';
-    ctx.fillText('Press Start Button to Play Again', canvas.width / 2, canvas.height / 2 + 20);
-    ctx.textAlign = 'left'; // Reset text align
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
 
-    // Show start menu again after a delay (or immediately)
-    setTimeout(() => {
-       canvas.style.display = 'none';
-       startMenu.style.display = 'block'; // Show menu
-       // Update button text maybe?
-       startButton.textContent = 'Play Again?';
-    }, 1500); // Show after 1.5 seconds
+    canvas.style.display = 'none';
+    pauseMenu.style.display = 'none';
+    settingsScreen.style.display = 'none';
+    ingamePauseButton.style.display = 'none';
+    startMenu.style.display = 'block';
 
+    resetGameState();
 }
 
-// Event listener for start button
-startButton.addEventListener('click', () => {
-    // Ensure sprites are loaded before starting
-    loadSprites().then(() => {
-        startGame();
-    });
+function togglePause() {
+    paused = !paused;
+    if (paused) {
+        pauseMenu.style.display = 'block';
+    } else {
+        pauseMenu.style.display = 'none';
+    }
+}
+
+// --- Event Listeners for Menus ---
+
+startButton.addEventListener('click', startGame);
+
+settingsButton.addEventListener('click', () => {
+    startMenu.style.display = 'none';
+    settingsScreen.style.display = 'block';
+    settingsScreen.classList.add('menu');
 });
 
-// Initial setup message (optional)
-console.log("Jiji's Island game script loaded. Click Start Game!");
-// Draw initial start menu state (redundant due to CSS but safe)
+backButton.addEventListener('click', () => {
+    settingsScreen.style.display = 'none';
+    startMenu.style.display = 'block';
+});
+
+musicVolumeSlider.addEventListener('input', (e) => {
+    setMusicVolume(parseFloat(e.target.value));
+});
+
+sfxVolumeSlider.addEventListener('input', (e) => {
+    setSfxVolume(parseFloat(e.target.value));
+});
+
+ingamePauseButton.addEventListener('click', togglePause);
+
+resumeButton.addEventListener('click', togglePause);
+
+mainMenuButton.addEventListener('click', goToMainMenu);
+
+canvas.style.display = 'none';
 startMenu.style.display = 'block';
-canvas.style.display = 'none'; 
+settingsScreen.style.display = 'none';
+pauseMenu.style.display = 'none';
+ingamePauseButton.style.display = 'none';
+
+settingsScreen.classList.add('menu');
+pauseMenu.classList.add('menu');
+
+console.log("Game setup complete. Ready to start.");
+
+function drawScore() {
+    ctx.fillStyle = 'black';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('Score: ' + score, 20, 30);
+} 

@@ -10,7 +10,30 @@
     <div id="start-menu">
         <h1>Jiji's Island</h1>
         <button id="start-button">Start Game</button>
+        <button id="settings-button">Settings</button>
     </div>
+
+    <div id="settings-screen" style="display: none;">
+        <h2>Settings</h2>
+        <div>
+            <label for="music-volume">Music Volume:</label>
+            <input type="range" id="music-volume" min="0" max="1" step="0.1" value="0.5">
+        </div>
+        <div>
+            <label for="sfx-volume">SFX Volume:</label>
+            <input type="range" id="sfx-volume" min="0" max="1" step="0.1" value="0.5">
+        </div>
+        <button id="back-button">Back</button>
+    </div>
+
+    <div id="pause-menu" style="display: none;">
+        <h2>Paused</h2>
+        <button id="resume-button">Resume</button>
+        <button id="main-menu-button">Main Menu</button>
+    </div>
+
+    <button id="ingame-pause-button" style="display: none; position: absolute; top: 10px; left: 10px;">Pause</button>
+
     <canvas id="gameCanvas"></canvas>
     <script src="game.js"></script>
 </body>

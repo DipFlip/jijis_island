@@ -1,0 +1,40 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #87CEEB; /* Sky blue background */
+    overflow: hidden; /* Hide scrollbars */
+}
+
+#gameCanvas {
+    border: 1px solid black;
+    display: none; /* Hidden initially */
+    background-color: #f0f0f0; /* Light gray, maybe replace with background image later */
+}
+
+#start-menu {
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 30px;
+    border-radius: 10px;
+}
+
+#start-menu h1 {
+    color: #333;
+}
+
+#start-button {
+    padding: 10px 20px;
+    font-size: 1.2em;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+#start-button:hover {
+    background-color: #45a049;
+} 

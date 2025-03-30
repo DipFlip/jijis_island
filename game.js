@@ -8,6 +8,10 @@ let gameRunning = false;
 let backgroundMusic = new Audio('music/background_music.mp3');
 backgroundMusic.loop = true;
 
+// Sound Effects
+const jumpSounds = [new Audio('music/jump1.ogg'), new Audio('music/jump2.ogg')];
+const scoreSounds = [new Audio('music/score1.ogg'), new Audio('music/score2.ogg')];
+
 // Game dimensions (adjust as needed)
 canvas.width = 800;
 canvas.height = 600;
@@ -166,7 +170,9 @@ function update() {
         ) {
             item.collected = true;
             score += (item.type === 'shell' ? 10 : 20); // Example scoring
-            // Maybe play a sound effect here
+            // Play a random score sound
+            const randomScoreSound = scoreSounds[Math.floor(Math.random() * scoreSounds.length)];
+            randomScoreSound.play().catch(e => console.error("Error playing score sound:", e)); // Added catch for potential errors
         }
     });
 
@@ -190,6 +196,9 @@ function handleInput() {
         player.velocityY = -player.jumpStrength;
         player.isJumping = true;
         player.isOnGround = false;
+        // Play a random jump sound
+        const randomJumpSound = jumpSounds[Math.floor(Math.random() * jumpSounds.length)];
+        randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e)); // Added catch for potential errors
     }
 }
 

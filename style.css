@@ -26,6 +26,7 @@ body {
 
 #start-menu h1 {
     color: #333;
+    font-family: inherit; /* Ensure it uses the body font */
 }
 
 #start-button {
@@ -36,6 +37,7 @@ body {
     color: white;
     border: none;
     border-radius: 5px;
+    font-family: inherit; /* Inherit body font */
 }
 
 #start-button:hover {

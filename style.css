@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
 body {
     display: flex;
     justify-content: center;
@@ -6,6 +8,7 @@ body {
     margin: 0;
     background-color: #87CEEB; /* Sky blue background */
     overflow: hidden; /* Hide scrollbars */
+    font-family: 'Fredoka One', cursive; /* Apply playful font */
 }
 
 #gameCanvas {
@@ -39,6 +42,23 @@ body {
     background-color: #45a049;
 }
 
+/* Style settings button like start button */
+#settings-button {
+    padding: 10px 20px;
+    font-size: 1.2em;
+    cursor: pointer;
+    background-color: #ff9800; /* Orange color */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin-top: 15px; /* Add space below start button */
+    font-family: inherit; /* Inherit body font */
+}
+
+#settings-button:hover {
+    background-color: #e68a00;
+}
+
 /* Shared styles for menus */
 .menu {
     display: none; /* Hidden by default */
@@ -67,6 +87,7 @@ body {
     border: none;
     border-radius: 5px;
     margin: 10px 5px;
+    font-family: inherit; /* Inherit body font */
 }
 
 .menu button:hover {

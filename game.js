@@ -448,7 +448,7 @@ console.log("Game setup complete. Ready to start.");
 
 function drawScore() {
     ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
+    ctx.font = '20px "Fredoka One", cursive';
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + score, 20, 30);
 } 

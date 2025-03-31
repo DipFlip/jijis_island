@@ -73,11 +73,17 @@ const player = {
     isJumping: false,
     isOnGround: true,
     sprites: {},
-    currentFrame: 0,
+    currentFrame: 0, // Index for walk/jump animation
     walkFrames: ['walk1', 'walk2', 'walk3', 'walk2'], // Loop walk cycle
-    frameCount: 0,
-    frameDelay: 10, // Controls animation speed (lower is faster)
-    facingRight: true
+    walkFrameCount: 0,
+    walkFrameDelay: 10, // Controls walk animation speed
+    facingRight: true,
+    // Idle animation properties
+    isIdle: true, // Start as idle
+    idleFrames: ['sit1', 'sit2'], // Idle animation frames
+    currentIdleFrame: 0, // Index for idle animation
+    idleFrameCount: 0,
+    idleFrameDelay: 30 // Controls idle animation speed (slower)
 };
 
 // Collectible Sprites
@@ -144,7 +150,7 @@ window.addEventListener('keyup', (e) => {
 // Load player and collectible sprites
 function loadSprites() {
     return new Promise((resolve) => {
-        const playerSpriteNames = ['walk1', 'walk2', 'walk3'];
+        const playerSpriteNames = ['walk1', 'walk2', 'walk3', 'sit1', 'sit2']; // Add sit1, sit2
         const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
         const otherSpriteNames = ['background']; // Add background sprite name
         const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...otherSpriteNames]; // Combine all
@@ -297,17 +303,41 @@ function handleInput() {
 }
 
 function updateAnimation() {
-    if (player.velocityX !== 0 && player.isOnGround) {
-        player.frameCount++;
-        if (player.frameCount >= player.frameDelay) {
-            player.frameCount = 0;
+    // Determine player state
+    player.isIdle = player.isOnGround && player.velocityX === 0 && !player.isJumping;
+
+    if (player.isIdle) {
+        // Idle animation logic
+        player.idleFrameCount++;
+        if (player.idleFrameCount >= player.idleFrameDelay) {
+            player.idleFrameCount = 0;
+            player.currentIdleFrame = (player.currentIdleFrame + 1) % player.idleFrames.length;
+        }
+        // Reset walk animation when starting idle
+        player.currentFrame = 0;
+        player.walkFrameCount = 0;
+    } else if (!player.isOnGround) {
+        // Jumping state - use a specific frame (e.g., the second walk frame for a jump pose)
+        player.currentFrame = 1; // Or could add a dedicated jump sprite later
+        // Reset idle animation when jumping
+        player.currentIdleFrame = 0;
+        player.idleFrameCount = 0;
+    } else if (player.velocityX !== 0 && player.isOnGround) {
+        // Walking animation logic
+        player.walkFrameCount++;
+        if (player.walkFrameCount >= player.walkFrameDelay) {
+            player.walkFrameCount = 0;
             player.currentFrame = (player.currentFrame + 1) % player.walkFrames.length;
         }
-    } else if (!player.isOnGround) {
-        player.currentFrame = 1;
+        // Reset idle animation when walking
+        player.currentIdleFrame = 0;
+        player.idleFrameCount = 0;
     } else {
-        player.currentFrame = 0;
-        player.frameCount = 0;
+         // Default case (e.g., falling but velocityX is 0) - maybe use first walk frame or jump frame
+         player.currentFrame = 0; // Or 1 if preferred
+         // Reset idle animation
+         player.currentIdleFrame = 0;
+         player.idleFrameCount = 0;
     }
 }
 
@@ -435,7 +465,16 @@ function draw() {
 }
 
 function drawPlayer() {
-    const frameName = player.walkFrames[player.currentFrame];
+    let frameName;
+    if (player.isIdle) {
+        frameName = player.idleFrames[player.currentIdleFrame];
+    } else if (!player.isOnGround) {
+         // Use a jump frame (using walk1 as placeholder for now)
+        frameName = player.walkFrames[1]; // Or player.walkFrames[0] or a dedicated jump sprite name
+    } else { // Walking
+        frameName = player.walkFrames[player.currentFrame];
+    }
+
     const sprite = player.sprites[frameName];
 
     if (sprite) {
@@ -525,8 +564,11 @@ function resetGameState() {
     player.isJumping = false;
     player.isOnGround = true;
     player.currentFrame = 0;
-    player.frameCount = 0;
+    player.walkFrameCount = 0;
     player.facingRight = true;
+    player.isIdle = true;
+    player.currentIdleFrame = 0;
+    player.idleFrameCount = 0;
 
     score = 0;
 

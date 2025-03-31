@@ -23,29 +23,47 @@ body {
 }
 
 #start-menu {
-    position: relative; /* Needed for absolute positioning of children */
+    position: absolute; 
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     text-align: center;
-    background-color: transparent; /* Example: Make background see-through */
-    padding: 0; /* Remove padding if image dictates size */
-    border-radius: 10px; /* Keep rounded corners if desired */
-    max-width: 700px; /* Example max width */
-    width: 90%; /* Example width */
+    background-color: transparent;
+    /* padding: 20px; */ /* Remove padding */
+    padding: 0;
+    border-radius: 0; 
+    display: flex; 
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center;
+    box-sizing: border-box; 
 }
 
 .title-image {
-    display: block; /* Ensure it takes block space */
-    width: 100%; /* Make image fill the container width */
-    height: auto; /* Maintain aspect ratio */
-    margin-bottom: 10px; /* Space between image and button container if needed */
+    display: block;
+    width: 100%;      /* Take full container width */
+    height: 100vh;     /* Take full viewport height */
+    /* width: auto; */
+    /* height: auto; */
+    /* max-width: 95%; */
+    /* max-height: 80vh; */
+    object-fit: contain; /* Scale down image content to fit within the 100%x100vh box */
+    max-width: 100%; /* Ensure it respects container width */
+    max-height: 100vh; /* Ensure it respects container height */
+    margin-bottom: 0; 
 }
 
 .button-container {
-    position: absolute; /* Position relative to #start-menu */
-    bottom: 10%;       /* Position from the bottom (adjust percentage as needed) */
-    left: 50%;         /* Center horizontally */
+    position: absolute; 
+    /* bottom: 15vh; */      /* Adjust vertical position */
+    bottom: 10vh;       /* Lower it slightly */
+    left: 50%;         
     transform: translateX(-50%);
-    width: 90%;        /* Container width (adjust as needed) */
-    text-align: center; /* Center buttons within the container */
+    width: 90%;        
+    max-width: 400px; 
+    text-align: center; 
+    z-index: 1; /* Ensure buttons are visually on top */
 }
 
 /* General button styles if not already defined */
@@ -88,19 +106,26 @@ body {
     transform: translate(-50%, -50%);
     text-align: center;
     background-color: rgba(255, 255, 255, 0.9);
-    padding: 30px;
+    /* padding: 30px; */
+    padding: clamp(15px, 4vw, 30px); /* Responsive padding */
     border-radius: 10px;
     z-index: 10; /* Ensure menus are on top */
+    width: min(80vw, 500px); /* Responsive width with max */
+    box-sizing: border-box; /* Include padding in width */
 }
 
 .menu h2 {
     color: #333;
     margin-top: 0;
+    margin-bottom: 0.8em;
+    font-size: clamp(1.5em, 5vw, 2.5em); /* Responsive font size */
 }
 
 .menu button {
-    padding: 10px 20px;
-    font-size: 1em;
+    /* padding: 10px 20px; */
+    padding: clamp(8px, 2vw, 12px) clamp(15px, 3vw, 25px); /* Responsive padding */
+    /* font-size: 1em; */
+    font-size: clamp(0.9em, 2.5vw, 1.2em); /* Responsive font size */
     cursor: pointer;
     background-color: #007BFF; /* Blue */
     color: white;
@@ -125,12 +150,13 @@ body {
 
 #settings-screen label {
     display: inline-block;
-    width: 120px;
+    width: clamp(100px, 20vw, 140px); /* Responsive label width */
     color: #333;
+    font-size: clamp(0.9em, 2.5vw, 1.1em);
 }
 
 #settings-screen input[type="range"] {
-    width: 150px;
+    width: clamp(120px, 30vw, 200px); /* Responsive slider width */
     vertical-align: middle;
 }
 

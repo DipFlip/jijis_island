@@ -19,6 +19,12 @@ const touchJumpButton = document.getElementById('touch-jump');
 const touchControlsLeftContainer = document.getElementById('touch-controls-left'); // New left container
 const touchControlsRightContainer = document.getElementById('touch-controls-right'); // New right container
 
+// --- Native Resolution ---
+const nativeWidth = 800;
+const nativeHeight = 600;
+canvas.width = nativeWidth;
+canvas.height = nativeHeight;
+
 let gameRunning = false;
 let paused = false;
 let animationFrameId = null;
@@ -56,8 +62,8 @@ sfxVolumeSlider.value = sfxVolume;
 
 // Game dimensions (adjust as needed)
 const levelWidth = 3200; // Define the total width of the game world
-canvas.width = 800; // The width of the viewport/window
-canvas.height = 600;
+// canvas.width = 800; // Now set to nativeWidth above
+// canvas.height = 600; // Now set to nativeHeight above
 
 // Camera setup
 const camera = {
@@ -714,10 +720,43 @@ console.log("Game setup complete. Ready to start.");
 setupTouchControls();
 updateTouchControlVisibility(false); // Ensure controls are hidden initially
 
+// --- Initial Resize and Event Listener ---
+resizeCanvas(); // Call initially to set size
+window.addEventListener('resize', resizeCanvas); // Adjust canvas on window resize
+
 function drawScore() {
     // Draw score relative to the canvas, not the world
     ctx.fillStyle = 'black';
     ctx.font = '20px "Fredoka One", cursive';
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + score, 20, 30); // Use fixed screen coordinates (top-left)
+}
+
+// --- Responsive Canvas Scaling ---
+function resizeCanvas() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    // Calculate scale based on height first (fit height)
+    let scale = windowHeight / nativeHeight;
+    let newWidth = nativeWidth * scale;
+    let newHeight = windowHeight;
+
+    // If width is too large, scale based on width instead (fit width)
+    if (newWidth > windowWidth) {
+        scale = windowWidth / nativeWidth;
+        newWidth = windowWidth;
+        newHeight = nativeHeight * scale;
+    }
+
+    // Apply scaled dimensions to canvas style
+    canvas.style.width = `${newWidth}px`;
+    canvas.style.height = `${newHeight}px`;
+
+    // Center the canvas (since body is flex centered, this might not be needed, but good practice)
+    // The flex centering on the body should handle this automatically.
+    // canvas.style.marginLeft = `${(windowWidth - newWidth) / 2}px`;
+    // canvas.style.marginTop = `${(windowHeight - newHeight) / 2}px`; // Only if not vertically centered by flex
+
+    console.log(`Resized canvas style to: ${newWidth}x${newHeight}`);
 } 

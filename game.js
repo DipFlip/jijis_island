@@ -49,8 +49,15 @@ musicVolumeSlider.value = musicVolume;
 sfxVolumeSlider.value = sfxVolume;
 
 // Game dimensions (adjust as needed)
-canvas.width = 800;
+const levelWidth = 3200; // Define the total width of the game world
+canvas.width = 1600; // The width of the viewport/window
 canvas.height = 600;
+
+// Camera setup
+const camera = {
+    x: 0,
+    y: 0 // Keep y=0 for horizontal scrolling only for now
+};
 
 // Player setup
 const player = {
@@ -78,16 +85,19 @@ let collectibleSprites = {};
 
 // Platform setup (example platforms)
 const platforms = [
-    { x: 0, y: canvas.height - 40, width: canvas.width, height: 40 }, // Ground
+    { x: 0, y: canvas.height - 40, width: levelWidth, height: 40 }, // Ground spans the level width
     { x: 200, y: canvas.height - 150, width: 150, height: 20 },
-    { x: 450, y: canvas.height - 250, width: 100, height: 20 }
+    { x: 450, y: canvas.height - 250, width: 100, height: 20 },
+    // Add more platforms, potentially beyond the initial canvas.width
+    { x: 1800, y: canvas.height - 100, width: 200, height: 20 },
+    { x: 2200, y: canvas.height - 200, width: 150, height: 20 },
 ];
 
 // Water setup
 const water = {
     x: 0,
     y: canvas.height - 20,
-    width: canvas.width,
+    width: levelWidth, // Water spans the level width
     height: 20
 };
 
@@ -177,12 +187,14 @@ function update() {
 
     handleInput();
 
+    // Player physics
     player.velocityY += player.gravity;
     player.x += player.velocityX;
     player.y += player.velocityY;
 
     player.isOnGround = false;
 
+    // Platform collision
     platforms.forEach(platform => {
         if (
             player.x < platform.x + platform.width &&
@@ -190,31 +202,38 @@ function update() {
             player.y < platform.y + platform.height &&
             player.y + player.height > platform.y
         ) {
+            // Check collision only if falling downwards
             if (player.velocityY > 0 && player.y + player.height - player.velocityY <= platform.y) {
                 player.y = platform.y - player.height;
                 player.velocityY = 0;
                 player.isJumping = false;
                 player.isOnGround = true;
             }
+            // Add logic for hitting platform from below or sides if needed
         }
     });
 
+    // Level boundaries check
     if (player.x < 0) {
         player.x = 0;
     }
-    if (player.x + player.width > canvas.width) {
-        player.x = canvas.width - player.width;
+    // Use levelWidth for the right boundary
+    if (player.x + player.width > levelWidth) {
+        player.x = levelWidth - player.width;
     }
 
+    // Water collision check (using world coordinates)
     if (
         player.x < water.x + water.width &&
         player.x + player.width > water.x &&
         player.y + player.height > water.y
     ) {
         gameOver("Jiji got wet! Game over!");
+        return; // Exit update early on game over
     }
 
-    collectibles.forEach((item, index) => {
+    // Collectible collision
+    collectibles.forEach((item) => {
         if (!item.collected &&
             player.x < item.x + item.width &&
             player.x + player.width > item.x &&
@@ -227,6 +246,13 @@ function update() {
             randomScoreSound.play().catch(e => console.error("Error playing score sound:", e));
         }
     });
+
+    // Update camera position
+    // Target camera x to keep player centered
+    let targetCameraX = player.x + player.width / 2 - canvas.width / 2;
+
+    // Clamp camera x within level boundaries
+    camera.x = Math.max(0, Math.min(targetCameraX, levelWidth - canvas.width));
 
     updateAnimation();
 }
@@ -269,54 +295,75 @@ function updateAnimation() {
 function draw() {
     if (!gameRunning && !paused) return;
 
+    // Clear the entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#87CEEB';
+    // --- Draw static background (doesn't move with camera) ---
+    // Example: Draw a sky color that fills the viewport
+    ctx.fillStyle = '#87CEEB'; // Light sky blue
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // --- Begin drawing world elements relative to camera ---
+    ctx.save(); // Save the current state (no translation)
+    ctx.translate(-camera.x, -camera.y); // Apply camera offset
+
+    // --- Draw elements that scroll with the camera --- 
+    // Example: Draw distant background elements (optional parallax effect here later)
+    // ctx.fillStyle = '#some_distant_color';
+    // ctx.fillRect(0, 0, levelWidth, canvas.height); // Draw a background that spans the level
+
     if (!paused) {
-        ctx.fillStyle = '#A0522D';
+        // Draw Platforms (using world coordinates)
+        ctx.fillStyle = '#A0522D'; // Brown for platforms
         platforms.forEach(platform => {
             ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
         });
-        ctx.fillStyle = '#1E90FF';
+
+        // Draw Water (using world coordinates)
+        ctx.fillStyle = '#1E90FF'; // Blue for water
         ctx.fillRect(water.x, water.y, water.width, water.height);
-        drawPlayer();
+
+        // Draw Collectibles (using world coordinates)
         collectibles.forEach(item => {
             if (!item.collected) {
                 let spriteName = `${item.type}${item.spriteIndex}`;
                 let spriteToDraw = collectibleSprites[spriteName];
 
                 if (spriteToDraw) {
-                    // Draw the sprite using the width and height defined in the collectible object
                     ctx.drawImage(
                         spriteToDraw,
-                        item.x, // Draw at item's x
-                        item.y, // Draw at item's y
-                        item.width, // Draw using item's defined width
-                        item.height // Draw using item's defined height
+                        item.x,
+                        item.y,
+                        item.width,
+                        item.height
                     );
                 } else {
-                    // Fallback drawing if specific sprite (e.g., shell2) failed to load
-                    console.warn(`Sprite '${spriteName}.png' not loaded for item type '${item.type}', drawing fallback shape.`);
-                    // Draw generic fallback shape based on type
+                    console.warn(`Sprite '${spriteName}.png' not loaded, drawing fallback.`);
                     if (item.type === 'shell') {
-                        ctx.fillStyle = '#FFF8DC'; // Fallback color
+                        ctx.fillStyle = '#FFF8DC';
                         ctx.beginPath();
-                        // Use original item width/height for fallback shape
                         ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 3, 0, 0, 2 * Math.PI);
                         ctx.fill();
                     } else if (item.type === 'fish') {
-                        ctx.fillStyle = '#FF6347'; // Fallback color
+                        ctx.fillStyle = '#FF6347';
                         ctx.beginPath();
-                        // Use original item width/height for fallback shape
                         ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 2, Math.PI / 4, 0, 2 * Math.PI);
                         ctx.fill();
                     }
                 }
             }
         });
-    } else {
+
+        // Draw Player (using world coordinates)
+        drawPlayer(); // drawPlayer already uses player.x, player.y
+
+    }
+    // --- End drawing world elements --- 
+    ctx.restore(); // Restore context to pre-translate state
+
+    // --- Draw UI elements (fixed position on screen) --- 
+    if (paused) {
+        // Draw pause overlay (fixed on screen)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white';
@@ -324,7 +371,9 @@ function draw() {
         ctx.textAlign = 'center';
         ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 50);
     }
-    drawScore();
+
+    // Draw Score (fixed on screen)
+    drawScore(); 
 }
 
 function drawPlayer() {
@@ -332,17 +381,26 @@ function drawPlayer() {
     const sprite = player.sprites[frameName];
 
     if (sprite) {
-        ctx.save();
+        ctx.save(); // Save context before potential player transform
+        
+        // Translate to the player's position (world coordinates)
+        // We don't need translate(player.x, player.y) because the main draw context is already translated by the camera
+
         if (!player.facingRight) {
-            ctx.translate(player.x + player.width, player.y);
+            // Flip the sprite horizontally
+            // We translate to the point of flip (player's right edge), scale, then draw at (0,0) relative to that translated+scaled point
+            ctx.translate(player.x + player.width, player.y); 
             ctx.scale(-1, 1);
             ctx.drawImage(sprite, 0, 0, player.width, player.height);
         } else {
+            // Draw normally at player's world coordinates
             ctx.drawImage(sprite, player.x, player.y, player.width, player.height);
         }
-        ctx.restore();
+        
+        ctx.restore(); // Restore context after drawing player
     } else {
-        ctx.fillStyle = 'purple';
+        // Fallback drawing if sprite is missing
+        ctx.fillStyle = 'purple'; 
         ctx.fillRect(player.x, player.y, player.width, player.height);
     }
 }
@@ -482,8 +540,9 @@ pauseMenu.classList.add('menu');
 console.log("Game setup complete. Ready to start.");
 
 function drawScore() {
+    // Draw score relative to the canvas, not the world
     ctx.fillStyle = 'black';
     ctx.font = '20px "Fredoka One", cursive';
     ctx.textAlign = 'left';
-    ctx.fillText('Score: ' + score, 20, 30);
+    ctx.fillText('Score: ' + score, 20, 30); // Use fixed screen coordinates (top-left)
 } 

@@ -50,7 +50,7 @@ sfxVolumeSlider.value = sfxVolume;
 
 // Game dimensions (adjust as needed)
 const levelWidth = 3200; // Define the total width of the game world
-canvas.width = 1600; // The width of the viewport/window
+canvas.width = 800; // The width of the viewport/window
 canvas.height = 600;
 
 // Camera setup
@@ -247,9 +247,21 @@ function update() {
         }
     });
 
-    // Update camera position
-    // Target camera x to keep player centered
-    let targetCameraX = player.x + player.width / 2 - canvas.width / 2;
+    // --- Update camera position with dead zone ---
+    const deadZoneWidth = canvas.width * 0.25; // 25% of screen width
+    const deadZoneLeft = camera.x + (canvas.width - deadZoneWidth) / 2;
+    const deadZoneRight = camera.x + (canvas.width + deadZoneWidth) / 2;
+    const playerCenterX = player.x + player.width / 2;
+
+    let targetCameraX = camera.x; // Start with current camera position
+
+    if (playerCenterX < deadZoneLeft) {
+        // Player is to the left of the dead zone, move camera left
+        targetCameraX = playerCenterX - (canvas.width - deadZoneWidth) / 2;
+    } else if (playerCenterX > deadZoneRight) {
+        // Player is to the right of the dead zone, move camera right
+        targetCameraX = playerCenterX - (canvas.width + deadZoneWidth) / 2;
+    }
 
     // Clamp camera x within level boundaries
     camera.x = Math.max(0, Math.min(targetCameraX, levelWidth - canvas.width));
@@ -414,7 +426,13 @@ function gameLoop() {
 }
 
 function startGame() {
-    resetGameState();
+    resetGameState(); // Reset player position first
+
+    // --- Calculate initial camera position --- 
+    let initialTargetCameraX = player.x + player.width / 2 - canvas.width / 2;
+    camera.x = Math.max(0, Math.min(initialTargetCameraX, levelWidth - canvas.width));
+    // Ensure y is 0 if only horizontal scrolling
+    camera.y = 0; 
 
     gameRunning = true;
     paused = false;
@@ -431,6 +449,7 @@ function startGame() {
         cancelAnimationFrame(animationFrameId);
     }
     loadSprites().then(() => {
+        console.log("Sprites loaded, starting game loop with initial camera position:", camera.x);
         animationFrameId = requestAnimationFrame(gameLoop);
     });
 }
@@ -453,7 +472,7 @@ function gameOver(message) {
 }
 
 function resetGameState() {
-    player.x = 50;
+    player.x = 300; // Start player further into the level
     player.y = canvas.height - 100;
     player.velocityX = 0;
     player.velocityY = 0;

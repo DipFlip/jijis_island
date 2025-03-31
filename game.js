@@ -29,6 +29,8 @@ let gameRunning = false;
 let paused = false;
 let animationFrameId = null;
 
+let wantsToJump = false; // Flag to track jump intent
+
 // --- Audio Setup ---
 let musicVolume = 0.5;
 let sfxVolume = 0.5;
@@ -150,6 +152,9 @@ window.addEventListener('keydown', (e) => {
         if (e.code === 'Escape' && gameRunning) {
             togglePause();
         }
+        if (e.code === 'Space' && !e.repeat) {
+            wantsToJump = true;
+        }
     }
 });
 
@@ -193,6 +198,7 @@ function setupTouchControls() {
         touchJumpButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
             keys.Space = true;
+            wantsToJump = true;
         }, { passive: false });
 
         touchJumpButton.addEventListener('touchend', (e) => {
@@ -267,7 +273,18 @@ function update() {
     handleInput();
 
     // Player physics
-    player.velocityY += player.gravity;
+    let currentGravity = player.gravity;
+    // Apply stronger gravity when falling
+    if (player.velocityY > 0) {
+        currentGravity *= 2.0; // Increase gravity when falling (adjust multiplier as needed)
+    }
+    player.velocityY += currentGravity;
+
+    // Variable Jump Height: Cut jump short if button released while ascending
+    if (!keys.Space && player.velocityY < 0) {
+        player.velocityY = Math.max(player.velocityY, -player.jumpStrength / 2.5); // Reduce upward velocity faster (adjust divisor as needed)
+    }
+
     player.x += player.velocityX;
     player.y += player.velocityY;
 
@@ -359,12 +376,23 @@ function handleInput() {
         player.facingRight = true;
     }
 
-    if (keys.Space && !player.isJumping && player.isOnGround) {
+    let jumpIntentProcessed = false; // Keep track if we processed the intent this frame
+
+    // Jump check: Use wantsToJump flag and ensure player is grounded
+    if (wantsToJump && !player.isJumping && player.isOnGround) {
         player.velocityY = -player.jumpStrength;
         player.isJumping = true;
         player.isOnGround = false;
+        // wantsToJump = false; // Don't reset here anymore
+        jumpIntentProcessed = true; // Mark intent as processed (led to a jump)
         const randomJumpSound = jumpSounds[Math.floor(Math.random() * jumpSounds.length)];
         randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e));
+    }
+
+    // If jump intent existed this frame, reset it AFTER checking conditions.
+    // This ensures the intent from one press isn't held until landing.
+    if (wantsToJump) {
+        wantsToJump = false;
     }
 }
 

@@ -38,8 +38,8 @@ backgroundMusic.loop = true;
 backgroundMusic.volume = musicVolume;
 
 // Sound Effects - Apply initial volume
-const jumpSounds = [new Audio('music/jump1.ogg'), new Audio('music/jump2.ogg')];
-const scoreSounds = [new Audio('music/score1.ogg'), new Audio('music/score2.ogg')];
+const jumpSounds = [new Audio('music/jump1.wav'), new Audio('music/jump2.wav')];
+const scoreSounds = [new Audio('music/score1.wav'), new Audio('music/score2.wav')];
 jumpSounds.forEach(sound => sound.volume = sfxVolume);
 scoreSounds.forEach(sound => sound.volume = sfxVolume);
 

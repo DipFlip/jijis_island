@@ -12,6 +12,11 @@ const pauseMenu = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume-button');
 const mainMenuButton = document.getElementById('main-menu-button');
 const ingamePauseButton = document.getElementById('ingame-pause-button');
+// Touch control elements (will be added in HTML)
+const touchLeftButton = document.getElementById('touch-left');
+const touchRightButton = document.getElementById('touch-right');
+const touchJumpButton = document.getElementById('touch-jump');
+const touchControlsContainer = document.getElementById('touch-controls'); // Get the container
 
 let gameRunning = false;
 let paused = false;
@@ -146,6 +151,56 @@ window.addEventListener('keyup', (e) => {
         keys[e.code] = false;
     }
 });
+
+// --- Touch Input Handling ---
+function setupTouchControls() {
+    if (touchLeftButton) {
+        touchLeftButton.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent default touch behavior (like scrolling)
+            keys.ArrowLeft = true;
+            keys.KeyA = true; // Also trigger KeyA if needed
+        }, { passive: false }); // Use passive: false to allow preventDefault
+
+        touchLeftButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.ArrowLeft = false;
+            keys.KeyA = false;
+        });
+    }
+
+    if (touchRightButton) {
+        touchRightButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys.ArrowRight = true;
+            keys.KeyD = true;
+        }, { passive: false });
+
+        touchRightButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.ArrowRight = false;
+            keys.KeyD = false;
+        });
+    }
+
+    if (touchJumpButton) {
+        touchJumpButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys.Space = true;
+        }, { passive: false });
+
+        touchJumpButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.Space = false;
+        });
+    }
+}
+
+// --- Helper function to show/hide touch controls ---
+function updateTouchControlVisibility(show) {
+    if (touchControlsContainer) {
+        touchControlsContainer.style.display = show ? 'block' : 'none';
+    }
+}
 
 // Load player and collectible sprites
 function loadSprites() {
@@ -526,6 +581,7 @@ function startGame() {
     pauseMenu.style.display = 'none';
     canvas.style.display = 'block';
     ingamePauseButton.style.display = 'block';
+    updateTouchControlVisibility(true); // Show touch controls
 
     backgroundMusic.currentTime = 0;
     backgroundMusic.play().catch(e => console.error("Error playing background music:", e));
@@ -545,6 +601,7 @@ function gameOver(message) {
     backgroundMusic.pause();
     ingamePauseButton.style.display = 'none';
     pauseMenu.style.display = 'none';
+    updateTouchControlVisibility(false); // Hide touch controls on Game Over screen potentially
 
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -601,8 +658,10 @@ function togglePause() {
     paused = !paused;
     if (paused) {
         pauseMenu.style.display = 'block';
+        updateTouchControlVisibility(false); // Hide controls when paused
     } else {
         pauseMenu.style.display = 'none';
+        updateTouchControlVisibility(true); // Show controls when resumed
     }
 }
 
@@ -645,6 +704,10 @@ settingsScreen.classList.add('menu');
 pauseMenu.classList.add('menu');
 
 console.log("Game setup complete. Ready to start.");
+
+// Initialize touch controls after DOM is ready
+setupTouchControls();
+updateTouchControlVisibility(false); // Ensure controls are hidden initially
 
 function drawScore() {
     // Draw score relative to the canvas, not the world

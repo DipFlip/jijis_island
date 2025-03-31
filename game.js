@@ -594,6 +594,41 @@ function startGame() {
     ingamePauseButton.style.display = 'block';
     updateTouchControlVisibility(true); // Show touch controls
 
+    // --- Unlock Audio for Mobile ---
+    // Play and immediately pause each SFX to allow playback later on mobile
+    const allSfx = [...jumpSounds, ...scoreSounds];
+    allSfx.forEach(sound => {
+        const playPromise = sound.play();
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                // Playback started successfully, pause immediately.
+                sound.pause();
+                sound.currentTime = 0; // Reset time
+            }).catch(error => {
+                // Autoplay was prevented. This is common before user interaction.
+                // We might still be unlocked for later plays initiated by interaction.
+                console.log("Initial SFX play prevented:", error);
+                // Attempt to reset just in case.
+                 try {
+                    sound.pause();
+                    sound.currentTime = 0;
+                 } catch (resetError) {
+                    console.error("Error resetting sound after failed play:", resetError);
+                 }
+            });
+        } else {
+             // Play() might not return a promise in older environments
+             // or if called improperly. Try a simple pause/reset.
+             try {
+                sound.pause();
+                sound.currentTime = 0;
+             } catch (syncError) {
+                console.error("Error pausing sound synchronously:", syncError);
+             }
+        }
+    });
+    // -----------------------------
+
     backgroundMusic.currentTime = 0;
     backgroundMusic.play().catch(e => console.error("Error playing background music:", e));
 

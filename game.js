@@ -16,7 +16,8 @@ const ingamePauseButton = document.getElementById('ingame-pause-button');
 const touchLeftButton = document.getElementById('touch-left');
 const touchRightButton = document.getElementById('touch-right');
 const touchJumpButton = document.getElementById('touch-jump');
-const touchControlsContainer = document.getElementById('touch-controls'); // Get the container
+const touchControlsLeftContainer = document.getElementById('touch-controls-left'); // New left container
+const touchControlsRightContainer = document.getElementById('touch-controls-right'); // New right container
 
 let gameRunning = false;
 let paused = false;
@@ -197,8 +198,12 @@ function setupTouchControls() {
 
 // --- Helper function to show/hide touch controls ---
 function updateTouchControlVisibility(show) {
-    if (touchControlsContainer) {
-        touchControlsContainer.style.display = show ? 'block' : 'none';
+    const displayStyle = show ? 'flex' : 'none'; // Use flex since the containers use it
+    if (touchControlsLeftContainer) {
+        touchControlsLeftContainer.style.display = displayStyle;
+    }
+    if (touchControlsRightContainer) {
+        touchControlsRightContainer.style.display = displayStyle;
     }
 }
 

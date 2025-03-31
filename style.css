@@ -150,4 +150,54 @@ body {
 
 #ingame-pause-button:hover {
     background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* --- Touch Controls --- */
+.touch-container {
+    position: absolute;
+    bottom: 20px; /* Adjust vertical position */
+    z-index: 5;
+    display: flex; /* Arrange buttons inside */
+    flex-direction: column; /* Stack buttons vertically if needed */
+    align-items: center; /* Center buttons horizontally */
+}
+
+.touch-container.left {
+    left: 20px;
+}
+
+.touch-container.right {
+    right: 20px;
+}
+
+.touch-button {
+    background-color: rgba(100, 100, 100, 0.7); /* Semi-transparent gray */
+    color: white;
+    border: none;
+    border-radius: 50%; /* Make them round */
+    width: 60px;      /* Size */
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2em;   /* Make icon larger */
+    margin: 10px 0;   /* Space between buttons if stacked */
+    cursor: pointer;
+    user-select: none; /* Prevent text selection on touch */
+    -webkit-user-select: none; /* For iOS Safari */
+    touch-action: manipulation; /* Improve touch responsiveness */
+}
+
+.touch-button:active {
+    background-color: rgba(50, 50, 50, 0.8); /* Darker when pressed */
+}
+
+/* Adjust spacing if buttons are side-by-side in the left container */
+.touch-container.left .touch-button {
+    margin: 0 5px; /* Horizontal spacing instead of vertical */
+}
+
+/* Override flex direction for left container if horizontal layout is preferred */
+.touch-container.left {
+    flex-direction: row;
 } 

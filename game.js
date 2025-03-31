@@ -73,6 +73,9 @@ const player = {
     facingRight: true
 };
 
+// Collectible Sprites
+let collectibleSprites = {};
+
 // Platform setup (example platforms)
 const platforms = [
     { x: 0, y: canvas.height - 40, width: canvas.width, height: 40 }, // Ground
@@ -90,8 +93,14 @@ const water = {
 
 // Collectibles setup (example)
 const collectibles = [
-    { x: 250, y: canvas.height - 180, type: 'shell', collected: false, width: 20, height: 20 },
-    { x: 500, y: canvas.height - 280, type: 'fish', collected: false, width: 25, height: 15 }
+    { x: 250, y: canvas.height - 180, type: 'shell', spriteIndex: 1, collected: false, width: 40, height: 40 },
+    { x: 500, y: canvas.height - 280, type: 'fish', spriteIndex: 1, collected: false, width: 40, height: 40 },
+    // Add more collectibles using different sprites
+    { x: 100, y: canvas.height - 80, type: 'shell', spriteIndex: 2, collected: false, width: 40, height: 40 },
+    { x: 350, y: canvas.height - 80, type: 'shell', spriteIndex: 3, collected: false, width: 40, height: 40 },
+    { x: 600, y: canvas.height - 150, type: 'fish', spriteIndex: 2, collected: false, width: 40, height: 40 },
+    { x: 700, y: canvas.height - 100, type: 'fish', spriteIndex: 3, collected: false, width: 40, height: 40 },
+
 ];
 
 let score = 0;
@@ -121,30 +130,43 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Load player sprites
+// Load player and collectible sprites
 function loadSprites() {
     return new Promise((resolve) => {
-        const spriteNames = ['walk1', 'walk2', 'walk3'];
+        const playerSpriteNames = ['walk1', 'walk2', 'walk3'];
+        const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
+        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames];
         let loadedCount = 0;
+        const totalSprites = allSpriteNames.length;
 
-        spriteNames.forEach(name => {
+        allSpriteNames.forEach(name => {
             const img = new Image();
             img.src = `sprites/${name}.png`;
             img.onload = () => {
-                player.sprites[name] = img;
+                if (playerSpriteNames.includes(name)) {
+                    player.sprites[name] = img;
+                } else {
+                    collectibleSprites[name] = img;
+                }
                 loadedCount++;
-                if (loadedCount === spriteNames.length) {
+                console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
+                if (loadedCount === totalSprites) {
+                    console.log("All sprites loaded successfully.");
                     resolve();
                 }
             };
             img.onerror = () => {
                 console.error(`Failed to load sprite: ${name}.png`);
                 loadedCount++;
-                if (loadedCount === spriteNames.length) {
-                    resolve();
+                 if (loadedCount === totalSprites) {
+                    console.warn("Finished loading sprites, but some failed.");
+                    resolve(); // Resolve even if some sprites fail to load, maybe show placeholders
                 }
             };
         });
+         if (totalSprites === 0) { // Handle case where there are no sprites to load
+            resolve();
+        }
     });
 }
 
@@ -262,22 +284,35 @@ function draw() {
         drawPlayer();
         collectibles.forEach(item => {
             if (!item.collected) {
-                if (item.type === 'shell') {
-                    ctx.fillStyle = '#FFF8DC';
-                    ctx.beginPath();
-                    ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 3, 0, 0, 2 * Math.PI);
-                    ctx.fill();
-                } else if (item.type === 'fish') {
-                    ctx.fillStyle = '#FF6347';
-                    ctx.beginPath();
-                    ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 2, Math.PI / 4, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.moveTo(item.x, item.y + item.height / 2);
-                    ctx.lineTo(item.x - 10, item.y);
-                    ctx.lineTo(item.x - 10, item.y + item.height);
-                    ctx.closePath();
-                    ctx.fill();
+                let spriteName = `${item.type}${item.spriteIndex}`;
+                let spriteToDraw = collectibleSprites[spriteName];
+
+                if (spriteToDraw) {
+                    // Draw the sprite using the width and height defined in the collectible object
+                    ctx.drawImage(
+                        spriteToDraw,
+                        item.x, // Draw at item's x
+                        item.y, // Draw at item's y
+                        item.width, // Draw using item's defined width
+                        item.height // Draw using item's defined height
+                    );
+                } else {
+                    // Fallback drawing if specific sprite (e.g., shell2) failed to load
+                    console.warn(`Sprite '${spriteName}.png' not loaded for item type '${item.type}', drawing fallback shape.`);
+                    // Draw generic fallback shape based on type
+                    if (item.type === 'shell') {
+                        ctx.fillStyle = '#FFF8DC'; // Fallback color
+                        ctx.beginPath();
+                        // Use original item width/height for fallback shape
+                        ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 3, 0, 0, 2 * Math.PI);
+                        ctx.fill();
+                    } else if (item.type === 'fish') {
+                        ctx.fillStyle = '#FF6347'; // Fallback color
+                        ctx.beginPath();
+                        // Use original item width/height for fallback shape
+                        ctx.ellipse(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, item.height / 2, Math.PI / 4, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
                 }
             }
         });

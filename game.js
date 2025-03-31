@@ -82,6 +82,7 @@ const player = {
 
 // Collectible Sprites
 let collectibleSprites = {};
+let backgroundSprite = null; // Add variable for background sprite
 
 // Platform setup (example platforms)
 const platforms = [
@@ -145,18 +146,27 @@ function loadSprites() {
     return new Promise((resolve) => {
         const playerSpriteNames = ['walk1', 'walk2', 'walk3'];
         const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
-        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames];
+        const otherSpriteNames = ['background']; // Add background sprite name
+        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...otherSpriteNames]; // Combine all
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
 
+        if (totalSprites === 0) { // Handle case where there are no sprites to load
+            console.log("No sprites to load.");
+            resolve();
+            return; // Exit early
+        }
+
         allSpriteNames.forEach(name => {
             const img = new Image();
-            img.src = `sprites/${name}.png`;
+            img.src = `sprites/${name}.png`; // Assumes background is in sprites/
             img.onload = () => {
                 if (playerSpriteNames.includes(name)) {
                     player.sprites[name] = img;
-                } else {
+                } else if (collectibleSpriteNames.includes(name)) {
                     collectibleSprites[name] = img;
+                } else if (name === 'background') { // Handle background loading
+                    backgroundSprite = img;
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -170,13 +180,10 @@ function loadSprites() {
                 loadedCount++;
                  if (loadedCount === totalSprites) {
                     console.warn("Finished loading sprites, but some failed.");
-                    resolve(); // Resolve even if some sprites fail to load, maybe show placeholders
+                    resolve(); // Resolve even if some sprites fail to load
                 }
             };
         });
-         if (totalSprites === 0) { // Handle case where there are no sprites to load
-            resolve();
-        }
     });
 }
 
@@ -310,16 +317,55 @@ function draw() {
     // Clear the entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- Draw static background (doesn't move with camera) ---
-    // Example: Draw a sky color that fills the viewport
-    ctx.fillStyle = '#87CEEB'; // Light sky blue
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // --- Begin drawing world elements relative to camera ---
-    ctx.save(); // Save the current state (no translation)
+    // --- Draw background (scrolling with camera) ---
+    ctx.save(); // Save the current state (before camera translation)
     ctx.translate(-camera.x, -camera.y); // Apply camera offset
 
+    // Draw repeating background
+    if (backgroundSprite) {
+        const originalWidth = backgroundSprite.naturalWidth;
+        const originalHeight = backgroundSprite.naturalHeight;
+
+        if (originalHeight > 0) { // Avoid division by zero if sprite is not loaded properly
+            const scaledHeight = canvas.height;
+            const scaleFactor = scaledHeight / originalHeight;
+            const scaledWidth = originalWidth * scaleFactor;
+
+            if (scaledWidth > 0) { // Avoid infinite loop if width is zero
+                // Calculate the starting X position for drawing the first background image
+                // Ensures seamless tiling based on camera position
+                const startX = Math.floor(camera.x / scaledWidth) * scaledWidth;
+
+                // Draw the background images needed to cover the viewport
+                // The viewport spans from camera.x to camera.x + canvas.width
+                for (let x = startX; x < camera.x + canvas.width; x += scaledWidth) {
+                    ctx.drawImage(backgroundSprite, x, 0, scaledWidth, scaledHeight);
+                }
+            } else {
+                 // Fallback: Draw a solid color if scaled width is invalid
+                 ctx.fillStyle = '#87CEEB';
+                 ctx.fillRect(camera.x, 0, canvas.width, canvas.height); // Fill the viewport area relative to camera
+            }
+        } else {
+            // Fallback: Draw a solid color if original height is invalid
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(camera.x, 0, canvas.width, canvas.height); // Fill the viewport area relative to camera
+        }
+
+    } else {
+        // Fallback if background sprite isn't loaded yet or failed
+        ctx.fillStyle = '#87CEEB'; // Light sky blue
+        // Fill the viewport area relative to camera
+        ctx.fillRect(camera.x, 0, canvas.width, canvas.height);
+    }
+
+
     // --- Draw elements that scroll with the camera --- 
+    // (Platforms, Water, Collectibles, Player drawn AFTER background)
+    // Remove the old static background drawing:
+    // ctx.fillStyle = '#87CEEB'; // Light sky blue
+    // ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     // Example: Draw distant background elements (optional parallax effect here later)
     // ctx.fillStyle = '#some_distant_color';
     // ctx.fillRect(0, 0, levelWidth, canvas.height); // Draw a background that spans the level

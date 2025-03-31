@@ -18,26 +18,46 @@ body {
 }
 
 #start-menu {
+    position: relative; /* Needed for absolute positioning of children */
     text-align: center;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 30px;
-    border-radius: 10px;
+    background-color: transparent; /* Example: Make background see-through */
+    padding: 0; /* Remove padding if image dictates size */
+    border-radius: 10px; /* Keep rounded corners if desired */
+    max-width: 700px; /* Example max width */
+    width: 90%; /* Example width */
 }
 
-#start-menu h1 {
-    color: #333;
-    font-family: inherit; /* Ensure it uses the body font */
+.title-image {
+    display: block; /* Ensure it takes block space */
+    width: 100%; /* Make image fill the container width */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 10px; /* Space between image and button container if needed */
 }
 
-#start-button {
+.button-container {
+    position: absolute; /* Position relative to #start-menu */
+    bottom: 10%;       /* Position from the bottom (adjust percentage as needed) */
+    left: 50%;         /* Center horizontally */
+    transform: translateX(-50%);
+    width: 90%;        /* Container width (adjust as needed) */
+    text-align: center; /* Center buttons within the container */
+}
+
+/* General button styles if not already defined */
+.button {
     padding: 10px 20px;
     font-size: 1.2em;
     cursor: pointer;
-    background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 5px;
-    font-family: inherit; /* Inherit body font */
+    font-family: inherit;
+    margin: 0 10px; /* Space between buttons */
+    display: inline-block; /* Allow side-by-side placement */
+}
+
+#start-button {
+    background-color: #4CAF50;
 }
 
 #start-button:hover {
@@ -46,15 +66,8 @@ body {
 
 /* Style settings button like start button */
 #settings-button {
-    padding: 10px 20px;
-    font-size: 1.2em;
-    cursor: pointer;
     background-color: #ff9800; /* Orange color */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    margin-top: 15px; /* Add space below start button */
-    font-family: inherit; /* Inherit body font */
+    margin-top: 0;
 }
 
 #settings-button:hover {

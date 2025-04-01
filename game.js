@@ -63,14 +63,24 @@ backgroundMusic.volume = musicVolume;
 // Sound Effects - Apply initial volume
 const jumpSounds = [new Audio('music/jump1.wav'), new Audio('music/jump2.wav')];
 const scoreSounds = [new Audio('music/score1.wav'), new Audio('music/score2.wav')];
+// const dashSound = new Audio('music/dash.wav'); // Remove single dash sound
+const dashSounds = [ // Create array for dash sounds
+    new Audio('music/dash1.wav'),
+    new Audio('music/dash2.wav'),
+    new Audio('music/dash3.wav')
+];
 jumpSounds.forEach(sound => sound.volume = sfxVolume);
 scoreSounds.forEach(sound => sound.volume = sfxVolume);
+// dashSound.volume = sfxVolume; // Remove old volume set
+dashSounds.forEach(sound => sound.volume = sfxVolume); // Set initial volume for dash sounds
 
 // Function to update SFX volume
 function setSfxVolume(volume) {
     sfxVolume = volume;
     jumpSounds.forEach(sound => sound.volume = sfxVolume);
     scoreSounds.forEach(sound => sound.volume = sfxVolume);
+    // dashSound.volume = sfxVolume; // Remove old volume update
+    dashSounds.forEach(sound => sound.volume = sfxVolume); // Update volume for all dash sounds
 }
 
 // Function to update Music volume
@@ -713,6 +723,9 @@ function handleInput() {
         player.velocityX = (player.facingRight ? 1 : -1) * player.dashSpeed;
         player.velocityY = 0;
         console.log("DASH!");
+        // dashSound.play().catch(e => console.error("Error playing dash sound:", e)); // Remove old play
+        const randomDashSound = dashSounds[Math.floor(Math.random() * dashSounds.length)]; // Select random dash sound
+        randomDashSound.play().catch(e => console.error("Error playing dash sound:", e)); // Play random dash sound
 
         // Create a poof effect instance behind the player
         if (poofSprites.length > 0) {
@@ -999,7 +1012,8 @@ function startGame() {
 
     // --- Unlock Audio for Mobile ---
     // Play and immediately pause each SFX to allow playback later on mobile
-    const allSfx = [...jumpSounds, ...scoreSounds];
+    // const allSfx = [...jumpSounds, ...scoreSounds, dashSound]; // Remove old sfx array
+    const allSfx = [...jumpSounds, ...scoreSounds, ...dashSounds]; // Add dashSounds array using spread syntax
     allSfx.forEach(sound => {
         const playPromise = sound.play();
         if (playPromise !== undefined) {

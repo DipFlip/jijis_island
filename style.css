@@ -213,12 +213,13 @@ body {
     /* color: white; */ /* Remove text color */
     border: none;
     /* border-radius: 50%; */ /* Remove border radius */
-    width: 120px;      /* Size (was 60px) */
-    height: 120px;     /* Size (was 60px) */
+    width: 15vmin; /* Use viewport minimum for size */
+    height: 15vmin; /* Use viewport minimum for size */
+    max-width: 100px; /* Add a max size to prevent them getting too large */
+    max-height: 100px; /* Add a max size to prevent them getting too large */
     display: flex;
     justify-content: center;
     align-items: center;
-    /* font-size: 2em; */ /* Remove font size */
     margin: 10px 0;   /* Space between buttons if stacked */
     cursor: pointer;
     user-select: none; /* Prevent text selection on touch */

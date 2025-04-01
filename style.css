@@ -194,32 +194,38 @@ body {
 }
 
 .touch-container.left {
-    left: 20px;
+    left: 30px; /* Increased from 20px */
+    bottom: 30px; /* Increased from 20px */
 }
 
 .touch-container.right {
-    right: 10px;
+    right: 30px; /* Increased from 10px */
+    bottom: 30px; /* Increased from 20px and aligned with left */
     align-items: flex-end; /* Align items to the right */
     flex-direction: column; /* Stack buttons vertically */
     gap: 10px; /* Add gap between buttons */
 }
 
 .touch-button {
-    background-color: rgba(100, 100, 100, 0.7); /* Semi-transparent gray */
-    color: white;
+    /* background-color: rgba(100, 100, 100, 0.7); */ /* Remove background color */
+    background-color: transparent; /* Make background transparent */
+    /* color: white; */ /* Remove text color */
     border: none;
-    border-radius: 50%; /* Make them round */
+    /* border-radius: 50%; */ /* Remove border radius */
     width: 60px;      /* Size */
     height: 60px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 2em;   /* Make icon larger */
+    /* font-size: 2em; */ /* Remove font size */
     margin: 10px 0;   /* Space between buttons if stacked */
     cursor: pointer;
     user-select: none; /* Prevent text selection on touch */
     -webkit-user-select: none; /* For iOS Safari */
     touch-action: manipulation; /* Improve touch responsiveness */
+    background-size: contain; /* Make images fit */
+    background-repeat: no-repeat; /* Prevent image tiling */
+    background-position: center; /* Center the image */
 }
 
 .touch-button:active {
@@ -234,4 +240,23 @@ body {
 /* Override flex direction for left container if horizontal layout is preferred */
 .touch-container.left {
     flex-direction: row;
+}
+
+/* Specific images for each button */
+#touch-left {
+    background-image: url('sprites/button-move.png');
+    transform: rotate(-90deg); /* Rotate left */
+}
+
+#touch-right {
+    background-image: url('sprites/button-move.png');
+    transform: rotate(90deg); /* Rotate right */
+}
+
+#touch-dash {
+    background-image: url('sprites/button-dash.png');
+}
+
+#touch-jump {
+    background-image: url('sprites/button-jump.png');
 } 

@@ -72,11 +72,12 @@ body {
     font-size: 1.2em;
     cursor: pointer;
     color: white;
-    border: none;
+    border: 2px solid transparent; /* Add transparent border to reserve space */
     border-radius: 5px;
     font-family: inherit;
     margin: 0 10px; /* Space between buttons */
     display: inline-block; /* Allow side-by-side placement */
+    box-sizing: border-box; /* Include border in element size */
 }
 
 #start-button {
@@ -261,4 +262,26 @@ body {
 
 #touch-jump {
     background-image: url('sprites/button-jump.png');
+}
+
+/* Menu Navigation Focus */
+/* Apply focus style to buttons and sliders */
+.button.focused-element,
+input[type="range"].focused-element {
+    border: 2px solid white;  /* Keep white border for focus */
+    outline: none; /* Remove default browser outline on focused sliders */
+}
+
+/* Adjust slider thumb appearance when focused (optional) */
+input[type="range"].focused-element::-webkit-slider-thumb {
+    box-shadow: 0 0 5px white; /* Example: Add a white glow to the thumb */
+}
+input[type="range"].focused-element::-moz-range-thumb {
+    box-shadow: 0 0 5px white; /* Example: Add a white glow to the thumb */
+}
+
+/* Ensure other button states don't override focus completely */
+.button:hover:not(.focused-element) {
+     background-color: #ffae42;
+     border-color: #ffae42; /* Make border match hover background */
 } 

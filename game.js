@@ -20,6 +20,25 @@ const touchDashButton = document.getElementById('touch-dash'); // Get dash butto
 const touchControlsLeftContainer = document.getElementById('touch-controls-left'); // New left container
 const touchControlsRightContainer = document.getElementById('touch-controls-right'); // New right container
 
+// --- Menu Navigation Setup ---
+const startMenuItems = [startButton, settingsButton];
+const pauseMenuItems = [resumeButton, mainMenuButton];
+const settingsMenuItems = [musicVolumeSlider, sfxVolumeSlider, backButton]; // Added settings items
+let startMenuFocusIndex = 0;
+let pauseMenuFocusIndex = 0;
+let settingsMenuFocusIndex = 0; // Added settings focus index
+const focusedElementClass = 'focused-element'; // Use a more general name
+
+// Function to update visual focus on menu elements (buttons, sliders, etc.)
+function updateMenuFocus(menuItems, newFocusIndex, oldFocusIndex, cssClass) {
+    if (oldFocusIndex >= 0 && oldFocusIndex < menuItems.length) {
+        menuItems[oldFocusIndex]?.classList.remove(cssClass);
+    }
+    if (newFocusIndex >= 0 && newFocusIndex < menuItems.length) {
+        menuItems[newFocusIndex]?.classList.add(cssClass);
+    }
+}
+
 // --- Native Resolution ---
 const nativeWidth = 800;
 const nativeHeight = 600;
@@ -164,6 +183,95 @@ const keys = {
 };
 
 window.addEventListener('keydown', (e) => {
+    // --- Menu Navigation Logic ---
+    let menuHandled = false;
+    if (startMenu.style.display === 'block') {
+        const itemCount = startMenuItems.length;
+        let oldIndex = startMenuFocusIndex;
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowLeft' || e.code === 'KeyA') {
+            startMenuFocusIndex = (startMenuFocusIndex - 1 + itemCount) % itemCount;
+            menuHandled = true;
+        } else if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'ArrowRight' || e.code === 'KeyD') {
+            startMenuFocusIndex = (startMenuFocusIndex + 1) % itemCount;
+            menuHandled = true;
+        } else if (e.code === 'Space' || e.code === 'Enter') {
+            startMenuItems[startMenuFocusIndex]?.click();
+            menuHandled = true;
+        }
+        if (menuHandled) {
+            updateMenuFocus(startMenuItems, startMenuFocusIndex, oldIndex, focusedElementClass);
+        }
+
+    } else if (pauseMenu.style.display === 'block') {
+        const itemCount = pauseMenuItems.length;
+        let oldIndex = pauseMenuFocusIndex;
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowLeft' || e.code === 'KeyA') {
+            pauseMenuFocusIndex = (pauseMenuFocusIndex - 1 + itemCount) % itemCount;
+            menuHandled = true;
+        } else if (e.code === 'ArrowDown' || e.code === 'KeyS' || e.code === 'ArrowRight' || e.code === 'KeyD') {
+            pauseMenuFocusIndex = (pauseMenuFocusIndex + 1) % itemCount;
+            menuHandled = true;
+        } else if (e.code === 'Space' || e.code === 'Enter') {
+            pauseMenuItems[pauseMenuFocusIndex]?.click();
+            menuHandled = true;
+        }
+        if (menuHandled) {
+            updateMenuFocus(pauseMenuItems, pauseMenuFocusIndex, oldIndex, focusedElementClass);
+        }
+    }
+    // --- ADDED: Settings Menu Navigation ---
+    else if (settingsScreen.style.display === 'block') {
+        const itemCount = settingsMenuItems.length;
+        let oldIndex = settingsMenuFocusIndex;
+        let focusChanged = false;
+
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+            settingsMenuFocusIndex = (settingsMenuFocusIndex - 1 + itemCount) % itemCount;
+            focusChanged = true;
+        } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+            settingsMenuFocusIndex = (settingsMenuFocusIndex + 1) % itemCount;
+            focusChanged = true;
+        } else if (e.code === 'Space' || e.code === 'Enter') {
+            // Activate focused element (click button, or maybe focus slider?)
+            const focusedElement = settingsMenuItems[settingsMenuFocusIndex];
+            if (focusedElement && typeof focusedElement.click === 'function') {
+                focusedElement.click();
+            }
+            // Potentially add logic here if activating a slider should do something specific
+            menuHandled = true; // Prevent game actions
+        } else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowRight' || e.code === 'KeyD') {
+            // Handle left/right arrows for sliders
+            const focusedElement = settingsMenuItems[settingsMenuFocusIndex];
+            if (focusedElement && focusedElement.type === 'range') {
+                const step = parseFloat(focusedElement.step) || 0.1;
+                let value = parseFloat(focusedElement.value);
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                    value -= step;
+                } else {
+                    value += step;
+                }
+                // Clamp value within min/max
+                value = Math.max(parseFloat(focusedElement.min) || 0, Math.min(parseFloat(focusedElement.max) || 1, value));
+                focusedElement.value = value;
+                // Trigger input event to update volume
+                focusedElement.dispatchEvent(new Event('input')); 
+                menuHandled = true; // Prevent game actions
+            }
+        }
+
+        if (focusChanged) {
+            updateMenuFocus(settingsMenuItems, settingsMenuFocusIndex, oldIndex, focusedElementClass);
+            menuHandled = true; // Prevent game actions if focus changed
+        }
+    }
+
+    // If a menu handled the key, prevent further game input processing
+    if (menuHandled) {
+        e.preventDefault(); // Prevent default space/enter actions (like scrolling)
+        return; // Don't process game keys if menu navigation occurred
+    }
+
+    // --- Original Game Input Logic ---
     if (keys.hasOwnProperty(e.code)) {
         keys[e.code] = true;
         if (e.code === 'Escape' && gameRunning) {
@@ -806,10 +914,10 @@ function draw() {
         // Draw pause overlay (fixed on screen)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = '48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 50);
+        // ctx.fillStyle = 'white';
+        // ctx.font = '48px sans-serif';
+        // ctx.textAlign = 'center';
+        // ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 50); // Commented out as requested
     }
 
     // Draw Score (fixed on screen)
@@ -924,6 +1032,9 @@ function startGame() {
     loadSprites().then(() => {
         initializeClouds(); // Create initial clouds after sprites are loaded
         console.log("Sprites loaded, starting game loop with initial camera position:", camera.x);
+        // Reset and set initial focus for start menu (just in case)
+        startMenuFocusIndex = 0;
+        updateMenuFocus(startMenuItems, startMenuFocusIndex, -1, focusedElementClass);
         animationFrameId = requestAnimationFrame(gameLoop);
     });
 }
@@ -988,6 +1099,15 @@ function goToMainMenu() {
     ingamePauseButton.style.display = 'none';
     startMenu.style.display = 'block';
 
+    // Reset focus when returning to main menu
+    const oldPauseFocus = pauseMenuFocusIndex;
+    pauseMenuFocusIndex = 0;
+    updateMenuFocus(pauseMenuItems, -1, oldPauseFocus, focusedElementClass); // Clear pause menu focus
+
+    const oldStartFocus = startMenuFocusIndex; // Might have been something else
+    startMenuFocusIndex = 0;
+    updateMenuFocus(startMenuItems, startMenuFocusIndex, oldStartFocus, focusedElementClass); // Set focus on start menu
+
     resetGameState();
 }
 
@@ -996,9 +1116,17 @@ function togglePause() {
     if (paused) {
         pauseMenu.style.display = 'block';
         updateTouchControlVisibility(false); // Hide controls when paused
+        // Set initial focus for pause menu
+        const oldFocus = pauseMenuFocusIndex; // Might have changed if menu was opened before
+        pauseMenuFocusIndex = 0;
+        updateMenuFocus(pauseMenuItems, pauseMenuFocusIndex, oldFocus, focusedElementClass);
     } else {
         pauseMenu.style.display = 'none';
         updateTouchControlVisibility(true); // Show controls when resumed
+        // Clear focus when resuming
+        const oldFocus = pauseMenuFocusIndex;
+        pauseMenuFocusIndex = 0;
+        updateMenuFocus(pauseMenuItems, -1, oldFocus, focusedElementClass);
     }
 }
 
@@ -1015,6 +1143,14 @@ settingsButton.addEventListener('click', () => {
 backButton.addEventListener('click', () => {
     settingsScreen.style.display = 'none';
     startMenu.style.display = 'block';
+    // Reset and set initial focus for start menu
+    const oldSettingsFocus = settingsMenuFocusIndex;
+    settingsMenuFocusIndex = 0; // Reset settings menu index
+    updateMenuFocus(settingsMenuItems, -1, oldSettingsFocus, focusedElementClass); // Clear settings menu focus
+
+    const oldStartFocus = startMenuFocusIndex; // Might have changed
+    startMenuFocusIndex = 0;
+    updateMenuFocus(startMenuItems, startMenuFocusIndex, oldStartFocus, focusedElementClass); // Set focus on first start menu item
 });
 
 musicVolumeSlider.addEventListener('input', (e) => {
@@ -1045,6 +1181,9 @@ console.log("Game setup complete. Ready to start.");
 // Initialize touch controls after DOM is ready
 setupTouchControls();
 updateTouchControlVisibility(false); // Ensure controls are hidden initially
+
+// Set initial focus on the start menu's first item
+updateMenuFocus(startMenuItems, startMenuFocusIndex, -1, focusedElementClass);
 
 // --- Initial Resize and Event Listener ---
 resizeCanvas(); // Call initially to set size

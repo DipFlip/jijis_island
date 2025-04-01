@@ -123,6 +123,9 @@ const player = {
     dashSpeed: 15,     // Speed of the dash
     dashDuration: 10, // How many frames the dash lasts
     dashTimer: 0,      // Countdown timer for dash
+    // Cooldown properties
+    dashCooldown: 750, // Cooldown duration in milliseconds (0.75 seconds)
+    dashCooldownTimer: 0, // Timer for dash cooldown
     sprites: {},
     currentFrame: 0, // Index for walk/jump animation
     walkFrames: ['walk1', 'walk2', 'walk3', 'walk2'], // Loop walk cycle
@@ -136,7 +139,7 @@ const player = {
     idleFrameCount: 0,
     idleFrameDelay: 30, // Controls idle animation speed (slower)
     // --- Add canDashInAir property ---
-    canDashInAir: true
+    canDashInAir: true,
 };
 
 // Collectible Sprites
@@ -540,8 +543,32 @@ function updatePoofs() {
     }
 }
 
-function update() {
+// Add a variable to track the last frame time
+let lastTime = 0;
+
+function gameLoop(timestamp) { // timestamp is provided by requestAnimationFrame
+    if (!lastTime) {
+        lastTime = timestamp;
+    }
+    const deltaTime = timestamp - lastTime; // Time elapsed in milliseconds
+    lastTime = timestamp;
+
+    // Pass deltaTime to update function
+    update(deltaTime);
+    draw();
+
+    if (gameRunning) {
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+}
+
+function update(deltaTime) {
     if (!gameRunning || paused) return;
+
+    // Update dash cooldown timer
+    if (player.dashCooldownTimer > 0) {
+        player.dashCooldownTimer -= deltaTime;
+    }
 
     handleInput(); // Process inputs first
 
@@ -580,7 +607,8 @@ function update() {
 
     player.y += player.velocityY; // Apply vertical velocity always
 
-    player.isOnGround = false;
+    // --- Platform Collision Refactor ---
+    let groundedThisFrame = false; // Track if grounded in this frame's collision checks
 
     // Platform collision
     platforms.forEach(platform => {
@@ -591,58 +619,49 @@ function update() {
             player.y < platform.y + platform.height &&
             player.y + player.height > platform.y
         ) {
-            // --- Remove the immediate dash stop on any contact --- 
-            // if (player.isDashing) { ... }
-
             // --- Refined Collision Checks ---
             
             // 1. Check collision for landing ON TOP (only if falling downwards)
             if (player.velocityY >= 0 && // Use >= 0 to catch landing even if velocity was 0 briefly
                 player.y + player.height - (player.velocityY || 0) <= platform.y // Check previous bottom edge position
                ) 
-            {
+            { 
+                // Capture state BEFORE landing modifications
+                const wasJumping = player.isJumping;
+                const landingVelocityY = player.velocityY;
+
+                // Perform landing modifications
                 player.y = platform.y - player.height;
                 player.velocityY = 0;
                 player.isJumping = false;
-                player.isOnGround = true;
                 player.canDashInAir = true; // Reset air dash on landing
-                // ADD BACK: Stop dash if landing while dashing
+                groundedThisFrame = true; // Mark as grounded for this frame
+                
+                 // Reset cooldown timer ONLY if landing from a jump or significant fall
+                if (wasJumping || landingVelocityY > player.gravity) { // Threshold can be adjusted
+                    player.dashCooldownTimer = 0;
+                    // console.log("Landed from jump/fall, resetting dash cooldown."); // Optional debug log
+                }
+
+                // Stop dash if landing while dashing (Collision part)
                 if (player.isDashing) {
                     player.isDashing = false;
-                    player.dashTimer = 0;
                     player.velocityX = 0; // Also stop horizontal dash movement on landing
                 }
             }
-            // 2. Check for horizontal collision WHILE DASHING - REMOVED THE LOGIC THAT STOPS THE DASH
-            else if (player.isDashing) {
-                 // Check collision with left side of platform (while moving right)
-                 // if (player.velocityX > 0 && 
-                 //     player.x + player.width - player.velocityX <= platform.x // Check previous right edge
-                 //    )
-                 // {
-                 //     // player.x = platform.x - player.width; // Place player just left of platform
-                 //     // player.isDashing = false; // <- REMOVED
-                 //     // player.dashTimer = 0;      // <- REMOVED
-                 //     // player.velocityX = 0;      // <- REMOVED
-                 // }
-                 // // Check collision with right side of platform (while moving left)
-                 // else if (player.velocityX < 0 && 
-                 //          player.x - player.velocityX >= platform.x + platform.width // Check previous left edge
-                 //         )
-                 // {
-                 //     // player.x = platform.x + platform.width; // Place player just right of platform
-                 //     // player.isDashing = false; // <- REMOVED
-                 //     // player.dashTimer = 0;      // <- REMOVED
-                 //     // player.velocityX = 0;      // <- REMOVED
-                 // }
-                 // Optional: Check for ceiling collision (hitting from below)
-                 // else if (player.velocityY < 0 && player.y - player.velocityY >= platform.y + platform.height) { ... }
-            }
+            // 2. Check for horizontal collision WHILE DASHING - Intentionally removed (Pass through)
+            // else if (player.isDashing) { ... }
             // 3. Handle other potential collisions (e.g., hitting ceiling when *not* dashing)
             // else if (player.velocityY < 0 && ...) { ... }
 
         }
     });
+
+    // --- Finalize Ground Status --- 
+    // Set the definitive ground status for this frame
+    player.isOnGround = groundedThisFrame;
+
+    // --- End of Platform Collision Refactor ---
 
     // Level boundaries check
     if (player.x < 0) {
@@ -709,8 +728,8 @@ function update() {
 function handleInput() {
     // --- Dash Handling ---
     // Check for dash intent (unified from keyboard/touch)
-    // Allow dash if intent exists and NOT currently dashing AND (on ground OR can dash in air)
-    if (wantsToDash && !player.isDashing && (player.isOnGround || player.canDashInAir)) {
+    // Allow dash if intent exists, NOT currently dashing, cooldown is ready, AND (on ground OR can dash in air)
+    if (wantsToDash && !player.isDashing && player.dashCooldownTimer <= 0 && (player.isOnGround || player.canDashInAir)) {
         
         // If dashing in air, consume the air dash ability
         if (!player.isOnGround) {
@@ -718,6 +737,7 @@ function handleInput() {
         }
         
         player.isDashing = true;
+        player.dashCooldownTimer = player.dashCooldown; // Start cooldown
         player.canDash = false; // Keep this for potential future use (e.g., limiting total dashes)
         player.dashTimer = player.dashDuration;
         player.velocityX = (player.facingRight ? 1 : -1) * player.dashSpeed;
@@ -981,14 +1001,6 @@ function drawPlayer() {
         // Fallback drawing if sprite is missing
         ctx.fillStyle = 'purple'; 
         ctx.fillRect(player.x, player.y, player.width, player.height);
-    }
-}
-
-function gameLoop() {
-    update();
-    draw();
-    if (gameRunning) {
-        animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
 

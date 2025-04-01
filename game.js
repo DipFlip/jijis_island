@@ -416,32 +416,62 @@ function update() {
 
     // Platform collision
     platforms.forEach(platform => {
+        // Check for potential collision first
         if (
             player.x < platform.x + platform.width &&
             player.x + player.width > platform.x &&
             player.y < platform.y + platform.height &&
             player.y + player.height > platform.y
         ) {
-            // Check collision only if falling downwards
-            if (player.velocityY > 0 && player.y + player.height - player.velocityY <= platform.y) {
+            // --- Remove the immediate dash stop on any contact --- 
+            // if (player.isDashing) { ... }
+
+            // --- Refined Collision Checks ---
+            
+            // 1. Check collision for landing ON TOP (only if falling downwards)
+            if (player.velocityY >= 0 && // Use >= 0 to catch landing even if velocity was 0 briefly
+                player.y + player.height - (player.velocityY || 0) <= platform.y // Check previous bottom edge position
+               ) 
+            {
                 player.y = platform.y - player.height;
                 player.velocityY = 0;
                 player.isJumping = false;
                 player.isOnGround = true;
-                if (player.isDashing) { // Stop dash if hitting ground
+                // ADD BACK: Stop dash if landing while dashing
+                if (player.isDashing) {
                     player.isDashing = false;
                     player.dashTimer = 0;
+                    player.velocityX = 0; // Also stop horizontal dash movement on landing
                 }
             }
-            // Add logic for hitting platform from below or sides if needed
-             // Stop dash if hitting side/bottom of platform
-             else if (player.isDashing && (player.velocityX !== 0 || player.velocityY < 0)) {
-                 player.isDashing = false;
-                 player.dashTimer = 0;
-                 // Optional: Add slight bounce or stop movement
-                 // player.x -= player.velocityX; // Revert position slightly
-                 player.velocityX = 0;
-             }
+            // 2. Check for horizontal collision WHILE DASHING
+            else if (player.isDashing) {
+                 // Check collision with left side of platform (while moving right)
+                 if (player.velocityX > 0 && 
+                     player.x + player.width - player.velocityX <= platform.x // Check previous right edge
+                    )
+                 {
+                     player.x = platform.x - player.width; // Place player just left of platform
+                     player.isDashing = false;
+                     player.dashTimer = 0;
+                     player.velocityX = 0;
+                 }
+                 // Check collision with right side of platform (while moving left)
+                 else if (player.velocityX < 0 && 
+                          player.x - player.velocityX >= platform.x + platform.width // Check previous left edge
+                         )
+                 {
+                     player.x = platform.x + platform.width; // Place player just right of platform
+                     player.isDashing = false;
+                     player.dashTimer = 0;
+                     player.velocityX = 0;
+                 }
+                 // Optional: Check for ceiling collision (hitting from below)
+                 // else if (player.velocityY < 0 && player.y - player.velocityY >= platform.y + platform.height) { ... }
+            }
+            // 3. Handle other potential collisions (e.g., hitting ceiling when *not* dashing)
+            // else if (player.velocityY < 0 && ...) { ... }
+
         }
     });
 

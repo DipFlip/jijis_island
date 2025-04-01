@@ -73,10 +73,12 @@ const dashSounds = [ // Create array for dash sounds
     new Audio('music/dash2.wav'),
     new Audio('music/dash3.wav')
 ];
+const kishmishDeathSound = new Audio('music/kishmish1.wav'); // Added Kishmish death sound
 jumpSounds.forEach(sound => sound.volume = sfxVolume);
 scoreSounds.forEach(sound => sound.volume = sfxVolume);
 // dashSound.volume = sfxVolume; // Remove old volume set
 dashSounds.forEach(sound => sound.volume = sfxVolume); // Set initial volume for dash sounds
+kishmishDeathSound.volume = sfxVolume; // Set initial volume for Kishmish death sound
 
 // Function to update SFX volume
 function setSfxVolume(volume) {
@@ -85,6 +87,7 @@ function setSfxVolume(volume) {
     scoreSounds.forEach(sound => sound.volume = sfxVolume);
     // dashSound.volume = sfxVolume; // Remove old volume update
     dashSounds.forEach(sound => sound.volume = sfxVolume); // Update volume for all dash sounds
+    kishmishDeathSound.volume = sfxVolume; // Update Kishmish death sound volume
 }
 
 // Function to update Music volume
@@ -1089,7 +1092,7 @@ function startGame() {
     // --- Unlock Audio for Mobile ---
     // Play and immediately pause each SFX to allow playback later on mobile
     // const allSfx = [...jumpSounds, ...scoreSounds, dashSound]; // Remove old sfx array
-    const allSfx = [...jumpSounds, ...scoreSounds, ...dashSounds]; // Add dashSounds array using spread syntax
+    const allSfx = [...jumpSounds, ...scoreSounds, ...dashSounds, kishmishDeathSound]; // Add kishmish sound to unlock list
     allSfx.forEach(sound => {
         const playPromise = sound.play();
         if (playPromise !== undefined) {
@@ -1559,6 +1562,7 @@ function checkPlayerEnemyCollisions() {
                 // Create poof effect at kishmish visual center
                 createPoofEffect(kishmish.x + kishmish.width / 2, kishmish.y + kishmish.height / 2);
                 kishmish.isDead = true;
+                kishmishDeathSound.play().catch(e => console.error("Error playing kishmish death sound:", e)); // Play death sound
                 player.velocityY = -player.jumpStrength * 0.6; // Give player a small bounce
                 player.isJumping = true; // Treat it like a jump action
                 player.isOnGround = false; // No longer on ground after bounce
@@ -1575,9 +1579,10 @@ function checkPlayerEnemyCollisions() {
                  // Create poof effect at kishmish visual center
                 createPoofEffect(kishmish.x + kishmish.width / 2, kishmish.y + kishmish.height / 2);
                 kishmish.isDead = true;
+                kishmishDeathSound.play().catch(e => console.error("Error playing kishmish death sound:", e)); // Play death sound
                 // Optional: Add score, play sound, maybe a visual effect?
                 // score += 30;
-                // someDashKillSound.play();
+                // someDashKillSound.play(); // Keep this comment? Maybe remove if kishmish sound covers it.
                 continue; // Kishmish is dead, move to next enemy check
             }
 

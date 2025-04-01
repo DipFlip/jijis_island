@@ -76,9 +76,9 @@ const camera = {
 // Player setup
 const player = {
     x: 50,
-    y: canvas.height - 120, // Adjusted for raised ground and new height (600-60-60)
-    width: 60, // Increased size
-    height: 60, // Increased size
+    y: canvas.height - 138, // Adjusted for raised ground and new height (600 - 60 - 78)
+    width: 78, // Increased size by 30%
+    height: 78, // Increased size by 30%
     speed: 4,
     velocityX: 0,
     velocityY: 0,
@@ -103,6 +103,8 @@ const player = {
 // Collectible Sprites
 let collectibleSprites = {};
 let backgroundLayers = []; // Add array for parallax background layers
+let cloudSprites = []; // Array to hold loaded cloud sprites
+let clouds = []; // Array to hold active cloud objects
 
 // Platform setup (example platforms)
 const platforms = [
@@ -124,13 +126,13 @@ const water = {
 
 // Collectibles setup (example)
 const collectibles = [
-    { x: 250, y: canvas.height - 210, type: 'shell', spriteIndex: 1, collected: false, width: 40, height: 40 }, // Moved onto platform 1
-    { x: 500, y: canvas.height - 310, type: 'fish', spriteIndex: 1, collected: false, width: 40, height: 40 }, // Moved onto platform 2
+    { x: 250, y: canvas.height - 242, type: 'shell', spriteIndex: 1, collected: false, width: 72, height: 72 }, // Moved onto platform 1, resized
+    { x: 500, y: canvas.height - 342, type: 'fish', spriteIndex: 1, collected: false, width: 72, height: 72 }, // Moved onto platform 2, resized
     // Add more collectibles using different sprites
-    { x: 100, y: canvas.height - 100, type: 'shell', spriteIndex: 2, collected: false, width: 40, height: 40 }, // Kept (on ground)
-    { x: 350, y: canvas.height - 100, type: 'shell', spriteIndex: 3, collected: false, width: 40, height: 40 }, // Kept (on ground)
-    { x: 550, y: canvas.height - 210, type: 'fish', spriteIndex: 2, collected: false, width: 40, height: 40 }, // Moved X and onto platform 1
-    { x: 700, y: canvas.height - 100, type: 'fish', spriteIndex: 3, collected: false, width: 40, height: 40 }, // Kept (on ground)
+    { x: 100, y: canvas.height - 132, type: 'shell', spriteIndex: 2, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
+    { x: 350, y: canvas.height - 132, type: 'shell', spriteIndex: 3, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
+    { x: 550, y: canvas.height - 242, type: 'fish', spriteIndex: 2, collected: false, width: 72, height: 72 }, // Moved X and onto platform 1, resized
+    { x: 700, y: canvas.height - 132, type: 'fish', spriteIndex: 3, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
 
 ];
 
@@ -225,7 +227,8 @@ function loadSprites() {
         const playerSpriteNames = ['walk1', 'walk2', 'walk3', 'sit1', 'sit2']; // Add sit1, sit2
         const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
         const backgroundLayerNames = ['bkg1', 'bkg2', 'bkg3']; // New background layers
-        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...backgroundLayerNames]; // Combine all
+        const cloudSpriteNames = ['cloud1', 'cloud2', 'cloud3', 'cloud4']; // Cloud sprites
+        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...backgroundLayerNames, ...cloudSpriteNames]; // Combine all
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
 
@@ -266,6 +269,8 @@ function loadSprites() {
                     });
                     // Sort layers by parallax factor (ascending) so they draw back-to-front
                     backgroundLayers.sort((a, b) => a.parallaxFactor - b.parallaxFactor);
+                } else if (cloudSpriteNames.includes(name)) { // Handle cloud sprites
+                    cloudSprites.push(img); // Just store the image
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -287,6 +292,57 @@ function loadSprites() {
 }
 
 // --- Game Logic Functions ---
+
+// Initialize cloud positions, speeds, and sprites
+function initializeClouds() {
+    clouds = []; // Clear existing clouds
+    const numClouds = 5; // Number of clouds to create
+    if (cloudSprites.length === 0) {
+        console.warn("No cloud sprites loaded to initialize clouds.");
+        return;
+    }
+
+    for (let i = 0; i < numClouds; i++) {
+        const cloudImage = cloudSprites[Math.floor(Math.random() * cloudSprites.length)];
+        // Spawn across the screen width + a bit off-screen right initially
+        const startX = Math.random() * (canvas.width + 200);
+        const startY = 50 + Math.random() * 100; // Random Y position near top
+        const speed = 0.2 + Math.random() * 0.6; // Slow random speed (0.2 to 0.8)
+
+        clouds.push({
+            image: cloudImage,
+            x: startX,
+            y: startY,
+            speed: speed,
+            // Store original width for wrapping logic, scaled later
+            originalWidth: cloudImage.naturalWidth 
+        });
+    }
+    console.log("Initialized clouds:", clouds.length);
+}
+
+// Update cloud positions (called in main update loop)
+function updateClouds() {
+    if (clouds.length === 0) return;
+
+    const scaleFactor = 0.75; // Use the same scale factor as backgrounds for now
+
+    clouds.forEach(cloud => {
+        cloud.x -= cloud.speed; // Move left
+
+        const scaledWidth = cloud.originalWidth * scaleFactor;
+        // Check if cloud is completely off-screen left
+        if (cloud.x + scaledWidth < 0) {
+            // Reset position to the right, randomize Y and potentially sprite/speed
+            cloud.x = canvas.width; // Reset just off-screen right
+            cloud.y = 50 + Math.random() * 100; // New random Y
+            // Optional: randomize speed and sprite again
+            // cloud.speed = 0.2 + Math.random() * 0.6;
+            // cloud.image = cloudSprites[Math.floor(Math.random() * cloudSprites.length)];
+            // cloud.originalWidth = cloud.image.naturalWidth;
+        }
+    });
+}
 
 function update() {
     if (!gameRunning || paused) return;
@@ -383,6 +439,7 @@ function update() {
     // Clamp camera x within level boundaries
     camera.x = Math.max(0, Math.min(targetCameraX, levelWidth - canvas.width));
 
+    updateClouds(); // Update cloud positions
     updateAnimation();
 }
 
@@ -462,6 +519,10 @@ function draw() {
     // Clear the entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw a base light blue background first
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     // --- Draw Parallax Background Layers --- 
     // Draw these relative to the canvas (0,0), before the main camera translation
     ctx.save(); // Save context state before drawing backgrounds
@@ -469,48 +530,34 @@ function draw() {
     const backgroundScaleFactor = 0.75; // Make backgrounds 75% of original size
 
     if (backgroundLayers.length > 0) {
-        backgroundLayers.forEach(layer => {
-            const img = layer.image;
-            const parallaxFactor = layer.parallaxFactor;
-            const originalWidth = img.naturalWidth;
-            const originalHeight = img.naturalHeight;
+        // Find the index of the layer behind which clouds should appear (bkg3, factor 0.2)
+        const cloudLayerIndex = backgroundLayers.findIndex(layer => layer.parallaxFactor === 0.2);
 
-            if (originalHeight > 0 && originalWidth > 0) {
-                // Apply scaling factor
-                const layerWidth = originalWidth * backgroundScaleFactor;
-                const layerHeight = originalHeight * backgroundScaleFactor;
-                const yOffset = layer.yOffset; // Get the stored Y offset
-
-                if (layerWidth > 0) { // Check scaled width
-                    // Calculate the effective camera position for this layer
-                    const layerCameraX = camera.x * parallaxFactor;
-
-                    // Calculate the world X coordinate of the first tile needed to be drawn
-                    // Use original layerWidth for tiling calculation
-                    const startX_world = Math.floor(layerCameraX / layerWidth) * layerWidth;
-
-                    // Loop through the world X coordinates of the tiles needed to cover the screen width
-                    // The view for this layer spans from layerCameraX to layerCameraX + canvas.width
-                    // Use original layerWidth for loop condition and increment
-                    for (let currentX_world = startX_world; currentX_world < layerCameraX + canvas.width; currentX_world += layerWidth) {
-                        // Calculate the screen X position where this tile should be drawn
-                        const screenX = currentX_world - layerCameraX;
-                        
-                        // Draw the tile directly onto the canvas at the calculated screen position
-                        // Apply Y offset here
-                        ctx.drawImage(img, screenX, yOffset, layerWidth, layerHeight);
-                    }
-                } else {
-                    console.warn("Background layer scaled width is zero.");
-                }
-            } else {
-                console.warn("Background layer image dimensions are invalid.");
+        // Draw layers up to and including the cloud layer index
+        for (let i = 0; i <= cloudLayerIndex; i++) {
+            if (backgroundLayers[i]) {
+                drawBackgroundLayer(backgroundLayers[i], backgroundScaleFactor);
             }
-        });
+        }
+
+        // Draw the clouds
+        drawClouds(backgroundScaleFactor);
+
+        // Draw the remaining layers
+        for (let i = cloudLayerIndex + 1; i < backgroundLayers.length; i++) {
+             if (backgroundLayers[i]) {
+                drawBackgroundLayer(backgroundLayers[i], backgroundScaleFactor);
+            }
+        }
+
+        // Old logic (draw all layers sequentially)
+        // backgroundLayers.forEach(layer => {
+        //    drawBackgroundLayer(layer, backgroundScaleFactor);
+        // });
     } else {
-        // Fallback if background layers aren't loaded
-        ctx.fillStyle = '#000020'; // Dark blue fallback
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Fallback if background layers aren't loaded (keep blue background drawn above)
+        // ctx.fillStyle = '#87CEEB'; // Light sky blue fallback (already drawn above)
+        // ctx.fillRect(0, 0, canvas.width, canvas.height); // Already drawn above
     }
     
     // Backgrounds are drawn relative to the screen (0,0). No restore needed here yet.
@@ -696,6 +743,7 @@ function startGame() {
         cancelAnimationFrame(animationFrameId);
     }
     loadSprites().then(() => {
+        initializeClouds(); // Create initial clouds after sprites are loaded
         console.log("Sprites loaded, starting game loop with initial camera position:", camera.x);
         animationFrameId = requestAnimationFrame(gameLoop);
     });
@@ -721,7 +769,7 @@ function gameOver(message) {
 
 function resetGameState() {
     player.x = 300; // Start player further into the level
-    player.y = canvas.height - 120; // Adjusted for raised ground and new height
+    player.y = canvas.height - 138; // Adjusted for raised ground and new height
     player.velocityX = 0;
     player.velocityY = 0;
     player.isJumping = false;
@@ -854,4 +902,46 @@ function resizeCanvas() {
     // canvas.style.marginTop = `${(windowHeight - newHeight) / 2}px`; // Only if not vertically centered by flex
 
     console.log(`Resized canvas style to: ${newWidth}x${newHeight}`);
+}
+
+// Helper function to draw a single background layer (extracted from previous loop)
+function drawBackgroundLayer(layer, scaleFactor) {
+    const img = layer.image;
+    const parallaxFactor = layer.parallaxFactor;
+    const originalWidth = img.naturalWidth;
+    const originalHeight = img.naturalHeight;
+    const yOffset = layer.yOffset;
+
+    if (originalHeight > 0 && originalWidth > 0) {
+        const layerWidth = originalWidth * scaleFactor;
+        const layerHeight = originalHeight * scaleFactor;
+
+        if (layerWidth > 0) {
+            const layerCameraX = camera.x * parallaxFactor;
+            const startX_world = Math.floor(layerCameraX / layerWidth) * layerWidth;
+
+            for (let currentX_world = startX_world; currentX_world < layerCameraX + canvas.width; currentX_world += layerWidth) {
+                const screenX = currentX_world - layerCameraX;
+                ctx.drawImage(img, screenX, yOffset, layerWidth, layerHeight);
+            }
+        } else {
+            console.warn("Background layer scaled width is zero.");
+        }
+    } else {
+        console.warn("Background layer image dimensions are invalid.");
+    }
+}
+
+// Function to draw clouds
+function drawClouds(scaleFactor) {
+     if (clouds.length === 0) return;
+
+    const cloudSpecificScaleFactor = scaleFactor * 0.5; // Make clouds half the size relative to the background scale
+
+    clouds.forEach(cloud => {
+        const img = cloud.image;
+        const scaledWidth = cloud.originalWidth * cloudSpecificScaleFactor;
+        const scaledHeight = img.naturalHeight * cloudSpecificScaleFactor;
+        ctx.drawImage(img, cloud.x, cloud.y, scaledWidth, scaledHeight);
+    });
 } 

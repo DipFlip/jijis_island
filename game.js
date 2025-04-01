@@ -16,6 +16,7 @@ const ingamePauseButton = document.getElementById('ingame-pause-button');
 const touchLeftButton = document.getElementById('touch-left');
 const touchRightButton = document.getElementById('touch-right');
 const touchJumpButton = document.getElementById('touch-jump');
+const touchDashButton = document.getElementById('touch-dash'); // Get dash button
 const touchControlsLeftContainer = document.getElementById('touch-controls-left'); // New left container
 const touchControlsRightContainer = document.getElementById('touch-controls-right'); // New right container
 
@@ -30,6 +31,7 @@ let paused = false;
 let animationFrameId = null;
 
 let wantsToJump = false; // Flag to track jump intent
+let wantsToDash = false; // Flag to track dash intent
 
 // --- Audio Setup ---
 let musicVolume = 0.5;
@@ -86,6 +88,12 @@ const player = {
     jumpStrength: 12,
     isJumping: false,
     isOnGround: true,
+    // Dash properties
+    canDash: true,
+    isDashing: false,
+    dashSpeed: 15,     // Speed of the dash
+    dashDuration: 10, // How many frames the dash lasts
+    dashTimer: 0,      // Countdown timer for dash
     sprites: {},
     currentFrame: 0, // Index for walk/jump animation
     walkFrames: ['walk1', 'walk2', 'walk3', 'walk2'], // Loop walk cycle
@@ -145,7 +153,8 @@ const keys = {
     KeyA: false,
     KeyD: false,
     Space: false,
-    Escape: false
+    Escape: false,
+    ShiftLeft: false // Add Shift key
 };
 
 window.addEventListener('keydown', (e) => {
@@ -156,6 +165,10 @@ window.addEventListener('keydown', (e) => {
         }
         if (e.code === 'Space' && !e.repeat) {
             wantsToJump = true;
+        }
+        // Set dash intent only on initial press for Shift
+        if (e.code === 'ShiftLeft' && !e.repeat) {
+            wantsToDash = true;
         }
     }
 });
@@ -206,6 +219,21 @@ function setupTouchControls() {
         touchJumpButton.addEventListener('touchend', (e) => {
             e.preventDefault();
             keys.Space = false;
+        });
+    }
+
+    // Add Dash button listeners
+    if (touchDashButton) {
+        touchDashButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            // Set dash intent - actual dash happens in update if conditions met
+            wantsToDash = true;
+        }, { passive: false });
+
+        touchDashButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            // Optional: Could reset wantsToDash here, but typically a dash is instant
+            // wantsToDash = false;
         });
     }
 }
@@ -347,23 +375,42 @@ function updateClouds() {
 function update() {
     if (!gameRunning || paused) return;
 
-    handleInput();
+    handleInput(); // Process inputs first
 
-    // Player physics
-    let currentGravity = player.gravity;
-    // Apply stronger gravity when falling
-    if (player.velocityY > 0) {
-        currentGravity *= 2.0; // Increase gravity when falling (adjust multiplier as needed)
+    // --- Dash Timer Update ---
+    if (player.isDashing) {
+        player.dashTimer--;
+        if (player.dashTimer <= 0) {
+            player.isDashing = false;
+            // Optional: Reset velocity immediately or let gravity take over
+            // player.velocityX = 0; // Stop horizontal movement abruptly
+        }
     }
-    player.velocityY += currentGravity;
+    // ---
 
-    // Variable Jump Height: Cut jump short if button released while ascending
-    if (!keys.Space && player.velocityY < 0) {
-        player.velocityY = Math.max(player.velocityY, -player.jumpStrength / 2.5); // Reduce upward velocity faster (adjust divisor as needed)
+    // Player physics (only apply gravity/normal movement if NOT dashing)
+    if (!player.isDashing) {
+        let currentGravity = player.gravity;
+        // Apply stronger gravity when falling
+        if (player.velocityY > 0) {
+            currentGravity *= 2.0; // Increase gravity when falling (adjust multiplier as needed)
+        }
+        player.velocityY += currentGravity;
+
+        // Variable Jump Height: Cut jump short if button released while ascending
+        if (!keys.Space && player.velocityY < 0) {
+            player.velocityY = Math.max(player.velocityY, -player.jumpStrength / 2.5); // Reduce upward velocity faster (adjust divisor as needed)
+        }
+
+        player.x += player.velocityX; // Apply normal horizontal velocity
+    } else {
+         // Apply dash velocity (already set in handleInput)
+         player.x += player.velocityX;
+         // Maybe negate gravity during dash? Or reduce it?
+         // player.velocityY = 0; // For a purely horizontal dash
     }
 
-    player.x += player.velocityX;
-    player.y += player.velocityY;
+    player.y += player.velocityY; // Apply vertical velocity always
 
     player.isOnGround = false;
 
@@ -381,8 +428,20 @@ function update() {
                 player.velocityY = 0;
                 player.isJumping = false;
                 player.isOnGround = true;
+                if (player.isDashing) { // Stop dash if hitting ground
+                    player.isDashing = false;
+                    player.dashTimer = 0;
+                }
             }
             // Add logic for hitting platform from below or sides if needed
+             // Stop dash if hitting side/bottom of platform
+             else if (player.isDashing && (player.velocityX !== 0 || player.velocityY < 0)) {
+                 player.isDashing = false;
+                 player.dashTimer = 0;
+                 // Optional: Add slight bounce or stop movement
+                 // player.x -= player.velocityX; // Revert position slightly
+                 player.velocityX = 0;
+             }
         }
     });
 
@@ -395,12 +454,16 @@ function update() {
         player.x = levelWidth - player.width;
     }
 
-    // Water collision check (using world coordinates)
+    // Water collision check (using world coordinates) - Stop dash if hitting water
     if (
         player.x < water.x + water.width &&
         player.x + player.width > water.x &&
         player.y + player.height > water.y
     ) {
+        if (player.isDashing) { // Stop dash before game over
+             player.isDashing = false;
+             player.dashTimer = 0;
+        }
         gameOver("Jiji got wet! Game over!");
         return; // Exit update early on game over
     }
@@ -444,34 +507,56 @@ function update() {
 }
 
 function handleInput() {
-    player.velocityX = 0;
-    if (keys.ArrowLeft || keys.KeyA) {
-        player.velocityX = -player.speed;
-        player.facingRight = false;
+    // --- Dash Handling ---
+    // Check for dash intent (unified from keyboard/touch)
+    // Allow dash if intent exists and NOT currently dashing
+    if (wantsToDash && !player.isDashing) {
+        player.isDashing = true;
+        player.canDash = false; // Keep this for potential future use (e.g., limiting total dashes)
+        player.dashTimer = player.dashDuration;
+        player.velocityX = (player.facingRight ? 1 : -1) * player.dashSpeed;
+        player.velocityY = 0;
+        console.log("DASH!");
+        // Play dash sound?
     }
-    if (keys.ArrowRight || keys.KeyD) {
-        player.velocityX = player.speed;
-        player.facingRight = true;
+    // Reset dash intent flag after checking it (handles both keyboard and touch)
+    if (wantsToDash) {
+        wantsToDash = false;
     }
+    // ---
 
-    let jumpIntentProcessed = false; // Keep track if we processed the intent this frame
+    // --- Normal Movement (only if NOT dashing) ---
+    if (!player.isDashing) {
+        player.velocityX = 0;
+        if (keys.ArrowLeft || keys.KeyA) {
+            player.velocityX = -player.speed;
+            player.facingRight = false;
+        }
+        if (keys.ArrowRight || keys.KeyD) {
+            player.velocityX = player.speed;
+            player.facingRight = true;
+        }
 
-    // Jump check: Use wantsToJump flag and ensure player is grounded
-    if (wantsToJump && !player.isJumping && player.isOnGround) {
-        player.velocityY = -player.jumpStrength;
-        player.isJumping = true;
-        player.isOnGround = false;
-        // wantsToJump = false; // Don't reset here anymore
-        jumpIntentProcessed = true; // Mark intent as processed (led to a jump)
-        const randomJumpSound = jumpSounds[Math.floor(Math.random() * jumpSounds.length)];
-        randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e));
-    }
+        let jumpIntentProcessed = false; // Keep track if we processed the intent this frame
 
-    // If jump intent existed this frame, reset it AFTER checking conditions.
-    // This ensures the intent from one press isn't held until landing.
-    if (wantsToJump) {
-        wantsToJump = false;
+        // Jump check: Use wantsToJump flag and ensure player is grounded
+        if (wantsToJump && !player.isJumping && player.isOnGround) {
+            player.velocityY = -player.jumpStrength;
+            player.isJumping = true;
+            player.isOnGround = false;
+            // player.canDash = true; // Reset dash ability on JUMPING (if desired, usually on landing)
+            jumpIntentProcessed = true; // Mark intent as processed (led to a jump)
+            const randomJumpSound = jumpSounds[Math.floor(Math.random() * jumpSounds.length)];
+            randomJumpSound.play().catch(e => console.error("Error playing jump sound:", e));
+        }
+
+        // If jump intent existed this frame, reset it AFTER checking conditions.
+        // This ensures the intent from one press isn't held until landing.
+        if (wantsToJump) {
+            wantsToJump = false;
+        }
     }
+    // ---
 }
 
 function updateAnimation() {
@@ -780,6 +865,9 @@ function resetGameState() {
     player.isIdle = true;
     player.currentIdleFrame = 0;
     player.idleFrameCount = 0;
+    // Reset dash state
+    player.isDashing = false;
+    player.dashTimer = 0;
 
     score = 0;
 

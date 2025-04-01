@@ -198,7 +198,10 @@ body {
 }
 
 .touch-container.right {
-    right: 20px;
+    right: 10px;
+    align-items: flex-end; /* Align items to the right */
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 10px; /* Add gap between buttons */
 }
 
 .touch-button {

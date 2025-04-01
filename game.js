@@ -102,7 +102,7 @@ const player = {
 
 // Collectible Sprites
 let collectibleSprites = {};
-let backgroundSprite = null; // Add variable for background sprite
+let backgroundLayers = []; // Add array for parallax background layers
 
 // Platform setup (example platforms)
 const platforms = [
@@ -224,10 +224,25 @@ function loadSprites() {
     return new Promise((resolve) => {
         const playerSpriteNames = ['walk1', 'walk2', 'walk3', 'sit1', 'sit2']; // Add sit1, sit2
         const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
-        const otherSpriteNames = ['background']; // Add background sprite name
-        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...otherSpriteNames]; // Combine all
+        const backgroundLayerNames = ['bkg1', 'bkg2', 'bkg3']; // New background layers
+        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...backgroundLayerNames]; // Combine all
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
+
+        // Assign parallax factors (adjust as needed, smaller means slower/further away)
+        // Assuming bkg1=closest, bkg3=furthest
+        const parallaxFactors = {
+            'bkg1': 0.8, // Fastest scroll (closest)
+            'bkg2': 0.5,
+            'bkg3': 0.2  // Slowest scroll (furthest)
+        };
+
+        // Define Y offsets (positive values move the layer down)
+        const yOffsets = {
+            'bkg1': 130,  // Lower this layer slightly
+            'bkg2': 250,  // Lower this layer more
+            'bkg3': 300   // Lower this layer more (same as bkg2)
+        };
 
         if (totalSprites === 0) { // Handle case where there are no sprites to load
             console.log("No sprites to load.");
@@ -243,8 +258,14 @@ function loadSprites() {
                     player.sprites[name] = img;
                 } else if (collectibleSpriteNames.includes(name)) {
                     collectibleSprites[name] = img;
-                } else if (name === 'background') { // Handle background loading
-                    backgroundSprite = img;
+                } else if (backgroundLayerNames.includes(name)) { // Handle background layers
+                    backgroundLayers.push({
+                        image: img,
+                        parallaxFactor: parallaxFactors[name] || 1, // Default to 1 if factor not defined
+                        yOffset: yOffsets[name] || 0 // Default to 0 if offset not defined
+                    });
+                    // Sort layers by parallax factor (ascending) so they draw back-to-front
+                    backgroundLayers.sort((a, b) => a.parallaxFactor - b.parallaxFactor);
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -441,58 +462,66 @@ function draw() {
     // Clear the entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- Draw background (scrolling with camera) ---
-    ctx.save(); // Save the current state (before camera translation)
-    ctx.translate(-camera.x, -camera.y); // Apply camera offset
+    // --- Draw Parallax Background Layers --- 
+    // Draw these relative to the canvas (0,0), before the main camera translation
+    ctx.save(); // Save context state before drawing backgrounds
 
-    // Draw repeating background
-    if (backgroundSprite) {
-        const originalWidth = backgroundSprite.naturalWidth;
-        const originalHeight = backgroundSprite.naturalHeight;
+    const backgroundScaleFactor = 0.75; // Make backgrounds 75% of original size
 
-        if (originalHeight > 0) { // Avoid division by zero if sprite is not loaded properly
-            const scaledHeight = canvas.height;
-            const scaleFactor = scaledHeight / originalHeight;
-            const scaledWidth = originalWidth * scaleFactor;
+    if (backgroundLayers.length > 0) {
+        backgroundLayers.forEach(layer => {
+            const img = layer.image;
+            const parallaxFactor = layer.parallaxFactor;
+            const originalWidth = img.naturalWidth;
+            const originalHeight = img.naturalHeight;
 
-            if (scaledWidth > 0) { // Avoid infinite loop if width is zero
-                // Calculate the starting X position for drawing the first background image
-                // Ensures seamless tiling based on camera position
-                const startX = Math.floor(camera.x / scaledWidth) * scaledWidth;
+            if (originalHeight > 0 && originalWidth > 0) {
+                // Apply scaling factor
+                const layerWidth = originalWidth * backgroundScaleFactor;
+                const layerHeight = originalHeight * backgroundScaleFactor;
+                const yOffset = layer.yOffset; // Get the stored Y offset
 
-                // Draw the background images needed to cover the viewport
-                // The viewport spans from camera.x to camera.x + canvas.width
-                for (let x = startX; x < camera.x + canvas.width; x += scaledWidth) {
-                    ctx.drawImage(backgroundSprite, x, 0, scaledWidth, scaledHeight);
+                if (layerWidth > 0) { // Check scaled width
+                    // Calculate the effective camera position for this layer
+                    const layerCameraX = camera.x * parallaxFactor;
+
+                    // Calculate the world X coordinate of the first tile needed to be drawn
+                    // Use original layerWidth for tiling calculation
+                    const startX_world = Math.floor(layerCameraX / layerWidth) * layerWidth;
+
+                    // Loop through the world X coordinates of the tiles needed to cover the screen width
+                    // The view for this layer spans from layerCameraX to layerCameraX + canvas.width
+                    // Use original layerWidth for loop condition and increment
+                    for (let currentX_world = startX_world; currentX_world < layerCameraX + canvas.width; currentX_world += layerWidth) {
+                        // Calculate the screen X position where this tile should be drawn
+                        const screenX = currentX_world - layerCameraX;
+                        
+                        // Draw the tile directly onto the canvas at the calculated screen position
+                        // Apply Y offset here
+                        ctx.drawImage(img, screenX, yOffset, layerWidth, layerHeight);
+                    }
+                } else {
+                    console.warn("Background layer scaled width is zero.");
                 }
             } else {
-                 // Fallback: Draw a solid color if scaled width is invalid
-                 ctx.fillStyle = '#87CEEB';
-                 ctx.fillRect(camera.x, 0, canvas.width, canvas.height); // Fill the viewport area relative to camera
+                console.warn("Background layer image dimensions are invalid.");
             }
-        } else {
-            // Fallback: Draw a solid color if original height is invalid
-            ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(camera.x, 0, canvas.width, canvas.height); // Fill the viewport area relative to camera
-        }
-
+        });
     } else {
-        // Fallback if background sprite isn't loaded yet or failed
-        ctx.fillStyle = '#87CEEB'; // Light sky blue
-        // Fill the viewport area relative to camera
-        ctx.fillRect(camera.x, 0, canvas.width, canvas.height);
+        // Fallback if background layers aren't loaded
+        ctx.fillStyle = '#000020'; // Dark blue fallback
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+    
+    // Backgrounds are drawn relative to the screen (0,0). No restore needed here yet.
+    // ctx.restore(); // NO - Keep context saved until after world elements
 
+    // --- Apply Main Camera Translation --- 
+    // Now translate the context for all subsequent world elements (player, platforms, etc.)
+    ctx.translate(-camera.x, -camera.y);
 
-    // --- Draw elements that scroll with the camera --- 
-    // (Platforms, Water, Collectibles, Player drawn AFTER background)
-    // Remove the old static background drawing:
-    // ctx.fillStyle = '#87CEEB'; // Light sky blue
-    // ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Example: Draw distant background elements (optional parallax effect here later)
-    // ctx.fillStyle = '#some_distant_color';
-    // ctx.fillRect(0, 0, levelWidth, canvas.height); // Draw a background that spans the level
+    // --- Draw elements that scroll with the camera ---
+    // (Platforms, Water, Collectibles, Player drawn AFTER background and AFTER main camera translate)
 
     if (!paused) {
         // Draw Platforms (using world coordinates)

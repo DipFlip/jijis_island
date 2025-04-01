@@ -76,9 +76,9 @@ const camera = {
 // Player setup
 const player = {
     x: 50,
-    y: canvas.height - 100, // Start near the bottom
-    width: 50, // Adjust based on sprite size
-    height: 50, // Adjust based on sprite size
+    y: canvas.height - 120, // Adjusted for raised ground and new height (600-60-60)
+    width: 60, // Increased size
+    height: 60, // Increased size
     speed: 4,
     velocityX: 0,
     velocityY: 0,
@@ -106,12 +106,12 @@ let backgroundLayers = []; // Add array for parallax background layers
 
 // Platform setup (example platforms)
 const platforms = [
-    { x: 0, y: canvas.height - 40, width: levelWidth, height: 40 }, // Ground spans the level width
-    { x: 200, y: canvas.height - 150, width: 150, height: 20 },
-    { x: 450, y: canvas.height - 250, width: 100, height: 20 },
+    { x: 0, y: canvas.height - 60, width: levelWidth, height: 40 }, // Ground spans the level width (Raised 20px more, hidden)
+    { x: 200, y: canvas.height - 150 - 20, width: 150, height: 20 }, // Lowered by 30px (orig -150, raised 50 -> -200, lowered 30 -> -170)
+    { x: 450, y: canvas.height - 250 - 20, width: 100, height: 20 }, // Lowered by 30px
     // Add more platforms, potentially beyond the initial canvas.width
-    { x: 1800, y: canvas.height - 100, width: 200, height: 20 },
-    { x: 2200, y: canvas.height - 200, width: 150, height: 20 },
+    { x: 1800, y: canvas.height - 100 - 20, width: 200, height: 20 }, // Lowered by 30px
+    { x: 2200, y: canvas.height - 200 - 20, width: 150, height: 20 }, // Lowered by 30px
 ];
 
 // Water setup
@@ -124,13 +124,13 @@ const water = {
 
 // Collectibles setup (example)
 const collectibles = [
-    { x: 250, y: canvas.height - 180, type: 'shell', spriteIndex: 1, collected: false, width: 40, height: 40 },
-    { x: 500, y: canvas.height - 280, type: 'fish', spriteIndex: 1, collected: false, width: 40, height: 40 },
+    { x: 250, y: canvas.height - 210, type: 'shell', spriteIndex: 1, collected: false, width: 40, height: 40 }, // Moved onto platform 1
+    { x: 500, y: canvas.height - 310, type: 'fish', spriteIndex: 1, collected: false, width: 40, height: 40 }, // Moved onto platform 2
     // Add more collectibles using different sprites
-    { x: 100, y: canvas.height - 80, type: 'shell', spriteIndex: 2, collected: false, width: 40, height: 40 },
-    { x: 350, y: canvas.height - 80, type: 'shell', spriteIndex: 3, collected: false, width: 40, height: 40 },
-    { x: 600, y: canvas.height - 150, type: 'fish', spriteIndex: 2, collected: false, width: 40, height: 40 },
-    { x: 700, y: canvas.height - 100, type: 'fish', spriteIndex: 3, collected: false, width: 40, height: 40 },
+    { x: 100, y: canvas.height - 100, type: 'shell', spriteIndex: 2, collected: false, width: 40, height: 40 }, // Kept (on ground)
+    { x: 350, y: canvas.height - 100, type: 'shell', spriteIndex: 3, collected: false, width: 40, height: 40 }, // Kept (on ground)
+    { x: 550, y: canvas.height - 210, type: 'fish', spriteIndex: 2, collected: false, width: 40, height: 40 }, // Moved X and onto platform 1
+    { x: 700, y: canvas.height - 100, type: 'fish', spriteIndex: 3, collected: false, width: 40, height: 40 }, // Kept (on ground)
 
 ];
 
@@ -232,7 +232,7 @@ function loadSprites() {
         // Assign parallax factors (adjust as needed, smaller means slower/further away)
         // Assuming bkg1=closest, bkg3=furthest
         const parallaxFactors = {
-            'bkg1': 0.8, // Fastest scroll (closest)
+            'bkg1': 1.0, // Fastest scroll (closest)
             'bkg2': 0.5,
             'bkg3': 0.2  // Slowest scroll (furthest)
         };
@@ -526,13 +526,16 @@ function draw() {
     if (!paused) {
         // Draw Platforms (using world coordinates)
         ctx.fillStyle = '#A0522D'; // Brown for platforms
-        platforms.forEach(platform => {
+        platforms.forEach((platform, index) => {
+            // Skip drawing the first platform (index 0), which is the ground
+            if (index === 0) return; // Don't draw the ground platform
+
             ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
         });
 
         // Draw Water (using world coordinates)
-        ctx.fillStyle = '#1E90FF'; // Blue for water
-        ctx.fillRect(water.x, water.y, water.width, water.height);
+        // ctx.fillStyle = '#1E90FF'; // Blue for water
+        // ctx.fillRect(water.x, water.y, water.width, water.height); // Hide water drawing
 
         // Draw Collectibles (using world coordinates)
         collectibles.forEach(item => {
@@ -718,7 +721,7 @@ function gameOver(message) {
 
 function resetGameState() {
     player.x = 300; // Start player further into the level
-    player.y = canvas.height - 100;
+    player.y = canvas.height - 120; // Adjusted for raised ground and new height
     player.velocityX = 0;
     player.velocityY = 0;
     player.isJumping = false;

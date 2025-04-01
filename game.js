@@ -113,6 +113,10 @@ let collectibleSprites = {};
 let backgroundLayers = []; // Add array for parallax background layers
 let cloudSprites = []; // Array to hold loaded cloud sprites
 let clouds = []; // Array to hold active cloud objects
+let poofSprites = []; // Array to hold poof animation frames
+let activePoofs = []; // Array for active poof effect instances
+const poofSequence = [1, 0, 1, 2]; // Desired frame order (0-based indices for poofSprites)
+const poofFrameDelay = 6; // SLOWER: How many game frames each poof frame lasts (was 4)
 
 // Platform setup (example platforms)
 const platforms = [
@@ -256,7 +260,14 @@ function loadSprites() {
         const collectibleSpriteNames = ['shell1', 'shell2', 'shell3', 'fish1', 'fish2', 'fish3'];
         const backgroundLayerNames = ['bkg1', 'bkg2', 'bkg3']; // New background layers
         const cloudSpriteNames = ['cloud1', 'cloud2', 'cloud3', 'cloud4']; // Cloud sprites
-        const allSpriteNames = [...playerSpriteNames, ...collectibleSpriteNames, ...backgroundLayerNames, ...cloudSpriteNames]; // Combine all
+        const poofSpriteNames = ['poof1', 'poof2', 'poof3']; // Poof sprites
+        const allSpriteNames = [
+            ...playerSpriteNames, 
+            ...collectibleSpriteNames, 
+            ...backgroundLayerNames, 
+            ...cloudSpriteNames,
+            ...poofSpriteNames // Add poof names
+        ]; 
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
 
@@ -299,6 +310,15 @@ function loadSprites() {
                     backgroundLayers.sort((a, b) => a.parallaxFactor - b.parallaxFactor);
                 } else if (cloudSpriteNames.includes(name)) { // Handle cloud sprites
                     cloudSprites.push(img); // Just store the image
+                } else if (poofSpriteNames.includes(name)) { // Handle poof sprites
+                    poofSprites.push(img);
+                    // Keep poof sprites in order (poof1, poof2, poof3)
+                    poofSprites.sort((a, b) => {
+                        // Extract number from src URL assuming format 'sprites/poofN.png'
+                        const numA = parseInt(a.src.match(/poof(\d+)\.png$/)[1]);
+                        const numB = parseInt(b.src.match(/poof(\d+)\.png$/)[1]);
+                        return numA - numB;
+                    });
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -370,6 +390,22 @@ function updateClouds() {
             // cloud.originalWidth = cloud.image.naturalWidth;
         }
     });
+}
+
+// Update poof animation frames and remove finished ones
+function updatePoofs() {
+    for (let i = activePoofs.length - 1; i >= 0; i--) {
+        const poof = activePoofs[i];
+        poof.timer++;
+        if (poof.timer >= poofFrameDelay) {
+            poof.timer = 0;
+            poof.sequenceIndex++; // Increment sequence index
+            // Remove poof if sequence finished
+            if (poof.sequenceIndex >= poofSequence.length) {
+                activePoofs.splice(i, 1);
+            }
+        }
+    }
 }
 
 function update() {
@@ -533,6 +569,7 @@ function update() {
     camera.x = Math.max(0, Math.min(targetCameraX, levelWidth - canvas.width));
 
     updateClouds(); // Update cloud positions
+    updatePoofs(); // Update poof animations
     updateAnimation();
 }
 
@@ -547,6 +584,21 @@ function handleInput() {
         player.velocityX = (player.facingRight ? 1 : -1) * player.dashSpeed;
         player.velocityY = 0;
         console.log("DASH!");
+
+        // Create a poof effect instance behind the player
+        if (poofSprites.length > 0) {
+            const poofX = player.facingRight ? player.x - player.width * 0.2 : player.x + player.width * 0.7; // Position slightly behind facing direction
+            const poofY = player.y + player.height * 0.5; // Center vertically relative to player
+            activePoofs.push({
+                x: poofX,
+                y: poofY,
+                sequenceIndex: 0, // Start at first step in the sequence
+                timer: 0,
+                 // Optional: Use player size or fixed size?
+                width: player.width * 0.8, // Slightly smaller than player
+                height: player.height * 0.8 
+            });
+        }
         // Play dash sound?
     }
     // Reset dash intent flag after checking it (handles both keyboard and touch)
@@ -732,6 +784,9 @@ function draw() {
 
         // Draw Player (using world coordinates)
         drawPlayer(); // drawPlayer already uses player.x, player.y
+
+        // Draw Poof effects (after player)
+        drawPoofs();
 
     }
     // --- End drawing world elements --- 
@@ -1061,5 +1116,23 @@ function drawClouds(scaleFactor) {
         const scaledWidth = cloud.originalWidth * cloudSpecificScaleFactor;
         const scaledHeight = img.naturalHeight * cloudSpecificScaleFactor;
         ctx.drawImage(img, cloud.x, cloud.y, scaledWidth, scaledHeight);
+    });
+}
+
+// Function to draw active poof effects
+function drawPoofs() {
+    if (activePoofs.length === 0 || poofSprites.length === 0) return;
+
+    activePoofs.forEach(poof => {
+        // Get the correct frame index from the sequence
+        const frameIndex = poofSequence[poof.sequenceIndex]; 
+        const frame = poofSprites[frameIndex];
+        if (frame) {
+            // Draw centered around poof.x, poof.y ? Or corner? Let's try corner.
+            ctx.drawImage(frame, poof.x, poof.y, poof.width, poof.height);
+        } else {
+            // This might happen briefly if sequenceIndex became invalid before removal
+            console.warn(`Poof frame index ${frameIndex} invalid for sequence index ${poof.sequenceIndex}`);
+        }
     });
 } 

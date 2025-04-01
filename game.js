@@ -12,6 +12,10 @@ const pauseMenu = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume-button');
 const mainMenuButton = document.getElementById('main-menu-button');
 const ingamePauseButton = document.getElementById('ingame-pause-button');
+// Game Over Screen elements
+const gameOverScreen = document.getElementById('game-over-screen');
+const gameOverMessageElement = document.getElementById('game-over-message');
+const gameOverMainMenuButton = document.getElementById('game-over-main-menu-button');
 // Touch control elements (will be added in HTML)
 const touchLeftButton = document.getElementById('touch-left');
 const touchRightButton = document.getElementById('touch-right');
@@ -152,6 +156,10 @@ let activePoofs = []; // Array for active poof effect instances
 const poofSequence = [1, 0, 1, 2]; // Desired frame order (0-based indices for poofSprites)
 const poofFrameDelay = 6; // SLOWER: How many game frames each poof frame lasts (was 4)
 
+// Kishmish enemy setup
+let kishmishSprites = {}; // Object to hold loaded kishmish sprites
+let kishmishes = []; // Array to hold active kishmish enemy objects
+
 // Platform setup (example platforms)
 const platforms = [
     { x: 0, y: canvas.height - 60, width: levelWidth, height: 40 }, // Ground spans the level width (Raised 20px more, hidden)
@@ -284,6 +292,16 @@ window.addEventListener('keydown', (e) => {
         return; // Don't process game keys if menu navigation occurred
     }
 
+    // --- ADDED: Game Over Screen Interaction ---
+    else if (gameOverScreen.style.display === 'block') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            gameOverMainMenuButton.click();
+            menuHandled = true; // Mark as handled
+            e.preventDefault(); // Prevent default space/enter actions
+            return;
+        }
+    }
+
     // --- Original Game Input Logic ---
     if (keys.hasOwnProperty(e.code)) {
         keys[e.code] = true;
@@ -384,12 +402,14 @@ function loadSprites() {
         const backgroundLayerNames = ['bkg1', 'bkg2', 'bkg3']; // REMOVED cloud1
         const cloudSpriteNames = ['cloud1', 'cloud2', 'cloud3', 'cloud4']; // RESTORED
         const poofSpriteNames = ['poof1', 'poof2', 'poof3']; // Poof sprites
+        const kishmishSpriteNames = ['kishmish_walk1', 'kishmish_walk2', 'kishmish_sit1']; // Kishmish sprites
         const allSpriteNames = [
             ...playerSpriteNames,
             ...collectibleSpriteNames,
             ...backgroundLayerNames,
             ...cloudSpriteNames, // RESTORED
-            ...poofSpriteNames // Add poof names
+            ...poofSpriteNames, // Add poof names
+            ...kishmishSpriteNames // Add kishmish names
         ];
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
@@ -443,6 +463,8 @@ function loadSprites() {
                         const numB = parseInt(b.src.match(/poof(\d+)\.png$/)[1]);
                         return numA - numB;
                     });
+                } else if (kishmishSpriteNames.includes(name)) { // Handle kishmish sprites
+                    kishmishSprites[name] = img;
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -723,6 +745,8 @@ function update(deltaTime) {
     updateClouds(); // RESTORED
     updatePoofs(); // Update poof animations
     updateAnimation();
+    updateKishmishes(deltaTime); // Update kishmish logic
+    checkPlayerEnemyCollisions(); // Check for collisions with kishmishes
 }
 
 function handleInput() {
@@ -947,6 +971,9 @@ function draw() {
         // Draw Poof effects (after player)
         drawPoofs();
 
+        // Draw Kishmishes
+        drawKishmishes();
+
     }
     // --- End drawing world elements --- 
     ctx.restore(); // Restore context to pre-translate state
@@ -964,6 +991,43 @@ function draw() {
 
     // Draw Score (fixed on screen)
     drawScore(); 
+}
+
+// --- Draw Kishmishes ---
+function drawKishmishes() {
+    if (Object.keys(kishmishSprites).length === 0) return; // Don't draw if sprites not loaded
+
+    kishmishes.forEach(kishmish => {
+        if (kishmish.isDead) return; // Don't draw dead ones
+
+        let sprite;
+        if (kishmish.state === 'sitting') {
+            sprite = kishmishSprites['kishmish_sit1'];
+        } else { // Walking
+            const frameName = `kishmish_walk${kishmish.walkFrame + 1}`;
+            sprite = kishmishSprites[frameName];
+        }
+
+        if (sprite) {
+            ctx.save();
+            // Flip sprite if moving left (velocityX < 0)
+            // Also check if not sitting, only flip when walking left
+            if (kishmish.velocityX < 0 && kishmish.state === 'walking') {
+                ctx.translate(kishmish.x + kishmish.width, kishmish.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(sprite, 0, 0, kishmish.width, kishmish.height);
+            } else {
+                 // Draw normally if sitting or walking right
+                ctx.drawImage(sprite, kishmish.x, kishmish.y, kishmish.width, kishmish.height);
+            }
+            ctx.restore();
+        } else {
+            // Fallback drawing
+            ctx.fillStyle = 'red';
+            ctx.fillRect(kishmish.x, kishmish.y, kishmish.width, kishmish.height);
+            console.warn(`Kishmish sprite missing for state: ${kishmish.state}, frame: ${kishmish.walkFrame}`);
+        }
+    });
 }
 
 function drawPlayer() {
@@ -1066,6 +1130,7 @@ function startGame() {
     }
     loadSprites().then(() => {
         initializeClouds(); // RESTORED
+        initializeKishmishes(); // Initialize kishmishes after sprites are loaded
         console.log("Sprites loaded, starting game loop with initial camera position:", camera.x);
         // Reset and set initial focus for start menu (just in case)
         startMenuFocusIndex = 0;
@@ -1088,8 +1153,31 @@ function gameOver(message) {
     }
 
     console.log(message);
-    alert(message);
-    goToMainMenu();
+    // alert(message); // Remove alert
+    // goToMainMenu(); // Remove direct call
+
+    // Show the Game Over screen
+    canvas.style.display = 'none'; // Hide the game canvas
+    gameOverMessageElement.textContent = message; // Set the message
+    gameOverScreen.style.display = 'block'; // Show the screen
+    gameOverScreen.classList.add('menu'); // Ensure menu styles are applied
+
+    // --- ADDED: Focus management for Game Over screen (optional but good) ---
+    // For simplicity, we'll just ensure the button is focusable, no explicit focus needed
+    // If you add more buttons later, implement focus logic like the other menus.
+
+    // Create poof effect at player location
+    createPoofEffect(player.x + player.width / 2, player.y + player.height / 2);
+
+    // Manually draw one last frame to show the poof starting
+    // We need to ensure the poof is drawn *before* hiding the canvas
+    // So, call draw() manually, then proceed to hide canvas/show menu.
+    // Note: This might cause a slight flicker, but ensures the poof appears.
+    draw(); 
+
+    // Now hide canvas and show menu
+    canvas.style.display = 'none'; // Hide the game canvas
+    gameOverScreen.style.display = 'block'; // Show the screen
 }
 
 function resetGameState() {
@@ -1113,6 +1201,7 @@ function resetGameState() {
     score = 0;
 
     collectibles.forEach(item => item.collected = false);
+    initializeKishmishes(); // Re-initialize kishmishes on reset
 
     for (const key in keys) {
         keys[key] = false;
@@ -1132,6 +1221,7 @@ function goToMainMenu() {
     pauseMenu.style.display = 'none';
     settingsScreen.style.display = 'none';
     ingamePauseButton.style.display = 'none';
+    gameOverScreen.style.display = 'none'; // Hide game over screen
     startMenu.style.display = 'block';
 
     // Reset focus when returning to main menu
@@ -1201,6 +1291,9 @@ ingamePauseButton.addEventListener('click', togglePause);
 resumeButton.addEventListener('click', togglePause);
 
 mainMenuButton.addEventListener('click', goToMainMenu);
+
+// Add listener for the new game over main menu button
+gameOverMainMenuButton.addEventListener('click', goToMainMenu);
 
 canvas.style.display = 'none';
 startMenu.style.display = 'block';
@@ -1327,4 +1420,185 @@ function drawPoofs() {
             console.warn(`Poof frame index ${frameIndex} invalid for sequence index ${poof.sequenceIndex}`);
         }
     });
+}
+
+// Function to initialize Kishmish enemies
+function initializeKishmishes() {
+    kishmishes = []; // Clear existing kishmishes
+
+    // Define properties for Kishmish
+    const kishmishScaleFactor = 1.5;
+    const kishmishWidth = player.width * kishmishScaleFactor;
+    const kishmishHeight = player.height * kishmishScaleFactor;
+    const kishmishSpeed = 0.8; // Increased speed (was 0.5)
+
+    // Place two kishmishes on the ground platform
+    // Make sure their y position accounts for their new height
+    const groundY = canvas.height - 60; // Ground level y-coordinate
+    kishmishes.push(createKishmish(600, groundY - kishmishHeight, kishmishWidth, kishmishHeight, kishmishSpeed));
+    kishmishes.push(createKishmish(1200, groundY - kishmishHeight, kishmishWidth, kishmishHeight, kishmishSpeed));
+
+    console.log("Initialized kishmishes:", kishmishes.length);
+}
+
+// Helper function to create a single Kishmish object
+function createKishmish(x, y, width, height, speed) {
+    return {
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        speed: speed,
+        velocityX: speed * (Math.random() < 0.5 ? 1 : -1), // Start moving randomly
+        state: 'walking', // 'walking', 'sitting', 'dead' (future)
+        sitTimer: 0, // Countdown timer for sitting duration
+        walkTimer: Math.random() * 200 + 100, // Countdown timer for walking duration (frames)
+        sitChance: 0.005, // Lowered chance to sit (was 0.01)
+        walkFrame: 0, // Current walk frame (0 or 1 for kishmish_walk1/2)
+        walkFrameTimer: 0,
+        isDead: false
+    };
+}
+
+// --- Update Kishmish Logic ---
+function updateKishmishes(deltaTime) {
+    const groundY = canvas.height - 60; // Assuming ground level from platform[0]
+
+    kishmishes.forEach((kishmish, index) => {
+        if (kishmish.isDead) {
+            // Optional: Add a death animation timer here before removing
+            // For now, we'll remove immediately (or handle in collision)
+            return; // Skip dead kishmishes
+        }
+
+        // --- State Machine ---
+        if (kishmish.state === 'walking') {
+            kishmish.walkTimer -= 1; // Using frames for timer for simplicity
+
+            // Move
+            kishmish.x += kishmish.velocityX;
+
+            // Boundary check
+            if (kishmish.x <= 0 || kishmish.x + kishmish.width >= levelWidth) {
+                kishmish.velocityX *= -1; // Reverse direction
+                kishmish.x = Math.max(0, Math.min(kishmish.x, levelWidth - kishmish.width)); // Clamp position
+            }
+
+            // Animation
+            kishmish.walkFrameTimer++;
+            if (kishmish.walkFrameTimer >= kishmish.walkFrameDelay) {
+                kishmish.walkFrameTimer = 0;
+                kishmish.walkFrame = (kishmish.walkFrame + 1) % 2; // Toggle between frame 0 and 1
+            }
+
+            // Chance to sit
+            if (Math.random() < kishmish.sitChance) {
+                kishmish.state = 'sitting';
+                kishmish.velocityX = 0; // Stop moving
+                kishmish.sitTimer = Math.random() * 120 + 60; // Sit for 1-3 seconds (approx at 60fps)
+                console.log(`Kishmish ${index} starts sitting.`);
+            }
+            // If walk timer runs out, turn around
+            else if (kishmish.walkTimer <= 0) {
+                kishmish.velocityX *= -1;
+                kishmish.walkTimer = Math.random() * 200 + 100; // Reset walk timer
+                console.log(`Kishmish ${index} turns around.`);
+            }
+
+        } else if (kishmish.state === 'sitting') {
+            kishmish.sitTimer -= 1;
+            if (kishmish.sitTimer <= 0) {
+                kishmish.state = 'walking';
+                kishmish.velocityX = kishmish.speed * (Math.random() < 0.5 ? 1 : -1); // Start walking random direction
+                kishmish.walkTimer = Math.random() * 200 + 100; // Reset walk timer
+                kishmish.walkFrameTimer = 0; // Reset animation timer
+                console.log(`Kishmish ${index} starts walking.`);
+            }
+        }
+
+        // Basic Gravity (ensure they stay on ground - simple version)
+        // In a more complex game, you'd check platform collisions
+        kishmish.y = groundY - kishmish.height;
+
+    });
+
+     // Filter out dead kishmishes (can be done here or where they die)
+     kishmishes = kishmishes.filter(k => !k.isDead); // Filter dead ones *after* the loop
+}
+
+// --- Player/Enemy Collision Check ---
+function checkPlayerEnemyCollisions() {
+    if (!gameRunning || paused) return; // Don't check if game isn't active
+
+    for (let i = kishmishes.length - 1; i >= 0; i--) {
+        const kishmish = kishmishes[i];
+        if (kishmish.isDead) continue; // Skip already dead ones
+
+        // --- Reduced Hitbox Calculation ---
+        const hitboxPadding = kishmish.width * 0.15; // Reduce hitbox by 15% on each side (adjust as needed)
+        const kishmishHitboxX = kishmish.x + hitboxPadding;
+        const kishmishHitboxY = kishmish.y + hitboxPadding;
+        const kishmishHitboxWidth = kishmish.width - 2 * hitboxPadding;
+        const kishmishHitboxHeight = kishmish.height - 2 * hitboxPadding;
+
+        // Simple Axis-Aligned Bounding Box (AABB) collision check (using reduced hitbox)
+        if (
+            player.x < kishmishHitboxX + kishmishHitboxWidth &&
+            player.x + player.width > kishmishHitboxX &&
+            player.y < kishmishHitboxY + kishmishHitboxHeight &&
+            player.y + player.height > kishmishHitboxY
+        ) {
+            // Collision detected!
+
+            // Check 1: Player jumps ON TOP of kishmish (using reduced hitbox Y)
+            // Player must be falling (positive velocityY)
+            // Player's bottom edge must have been ABOVE kishmish's (reduced) top edge in the previous frame
+            const playerPreviousBottom = player.y + player.height - (player.velocityY || 0); // Adjust for potential 0 velocity
+            if (player.velocityY >= 0 && playerPreviousBottom <= kishmishHitboxY + 1) { // Added tolerance (+1)
+                console.log("Player jumped on Kishmish!");
+                // Create poof effect at kishmish visual center
+                createPoofEffect(kishmish.x + kishmish.width / 2, kishmish.y + kishmish.height / 2);
+                kishmish.isDead = true;
+                player.velocityY = -player.jumpStrength * 0.6; // Give player a small bounce
+                player.isJumping = true; // Treat it like a jump action
+                player.isOnGround = false; // No longer on ground after bounce
+                player.canDashInAir = true; // Allow air dash after bouncing
+                // Optional: Add score, play sound
+                // score += 50; 
+                // someKillSound.play();
+                continue; // Kishmish is dead, move to next enemy check
+            }
+
+            // Check 2: Player DASHES INTO kishmish (check against reduced hitbox)
+            if (player.isDashing) {
+                console.log("Player dashed into Kishmish!");
+                 // Create poof effect at kishmish visual center
+                createPoofEffect(kishmish.x + kishmish.width / 2, kishmish.y + kishmish.height / 2);
+                kishmish.isDead = true;
+                // Optional: Add score, play sound, maybe a visual effect?
+                // score += 30;
+                // someDashKillSound.play();
+                continue; // Kishmish is dead, move to next enemy check
+            }
+
+            // Check 3: Player is hurt (collided but didn't jump on or dash)
+            console.log("Player hit by Kishmish!");
+            gameOver("Kishmish caught Jiji!");
+            return; // Game over, no need to check further collisions
+        }
+    }
+}
+
+// Helper function to create a poof effect instance
+function createPoofEffect(x, y) {
+    if (poofSprites.length > 0) {
+        activePoofs.push({
+            x: x - (player.width * 0.8) / 2, // Center the poof approx based on player size
+            y: y - (player.height * 0.8) / 2,
+            sequenceIndex: 0, // Start at first step in the sequence
+            timer: 0,
+            width: player.width * 0.8, // Slightly smaller than player (consistent size)
+            height: player.height * 0.8 
+        });
+    }
 } 

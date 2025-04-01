@@ -1433,7 +1433,7 @@ function initializeKishmishes() {
     const kishmishScaleFactor = 1.5;
     const kishmishWidth = player.width * kishmishScaleFactor;
     const kishmishHeight = player.height * kishmishScaleFactor;
-    const kishmishSpeed = 0.8; // Increased speed (was 0.5)
+    const kishmishSpeed = 1.5; // Increased speed (was 0.5)
 
     // Place two kishmishes on the ground platform
     // Make sure their y position accounts for their new height
@@ -1459,6 +1459,7 @@ function createKishmish(x, y, width, height, speed) {
         sitChance: 0.005, // Lowered chance to sit (was 0.01)
         walkFrame: 0, // Current walk frame (0 or 1 for kishmish_walk1/2)
         walkFrameTimer: 0,
+        walkFrameDelay: 20, // RE-ADD: How many frames each walk sprite lasts
         isDead: false
     };
 }

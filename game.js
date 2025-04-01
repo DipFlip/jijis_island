@@ -105,7 +105,9 @@ const player = {
     idleFrames: ['sit1', 'sit2'], // Idle animation frames
     currentIdleFrame: 0, // Index for idle animation
     idleFrameCount: 0,
-    idleFrameDelay: 30 // Controls idle animation speed (slower)
+    idleFrameDelay: 30, // Controls idle animation speed (slower)
+    // --- Add canDashInAir property ---
+    canDashInAir: true
 };
 
 // Collectible Sprites
@@ -473,6 +475,7 @@ function update() {
                 player.velocityY = 0;
                 player.isJumping = false;
                 player.isOnGround = true;
+                player.canDashInAir = true; // Reset air dash on landing
                 // ADD BACK: Stop dash if landing while dashing
                 if (player.isDashing) {
                     player.isDashing = false;
@@ -576,8 +579,14 @@ function update() {
 function handleInput() {
     // --- Dash Handling ---
     // Check for dash intent (unified from keyboard/touch)
-    // Allow dash if intent exists and NOT currently dashing
-    if (wantsToDash && !player.isDashing) {
+    // Allow dash if intent exists and NOT currently dashing AND (on ground OR can dash in air)
+    if (wantsToDash && !player.isDashing && (player.isOnGround || player.canDashInAir)) {
+        
+        // If dashing in air, consume the air dash ability
+        if (!player.isOnGround) {
+            player.canDashInAir = false;
+        }
+        
         player.isDashing = true;
         player.canDash = false; // Keep this for potential future use (e.g., limiting total dashes)
         player.dashTimer = player.dashDuration;
@@ -953,6 +962,7 @@ function resetGameState() {
     // Reset dash state
     player.isDashing = false;
     player.dashTimer = 0;
+    player.canDashInAir = true; // Reset air dash capability
 
     score = 0;
 

@@ -613,28 +613,28 @@ function update() {
                     player.velocityX = 0; // Also stop horizontal dash movement on landing
                 }
             }
-            // 2. Check for horizontal collision WHILE DASHING
+            // 2. Check for horizontal collision WHILE DASHING - REMOVED THE LOGIC THAT STOPS THE DASH
             else if (player.isDashing) {
                  // Check collision with left side of platform (while moving right)
-                 if (player.velocityX > 0 && 
-                     player.x + player.width - player.velocityX <= platform.x // Check previous right edge
-                    )
-                 {
-                     player.x = platform.x - player.width; // Place player just left of platform
-                     player.isDashing = false;
-                     player.dashTimer = 0;
-                     player.velocityX = 0;
-                 }
-                 // Check collision with right side of platform (while moving left)
-                 else if (player.velocityX < 0 && 
-                          player.x - player.velocityX >= platform.x + platform.width // Check previous left edge
-                         )
-                 {
-                     player.x = platform.x + platform.width; // Place player just right of platform
-                     player.isDashing = false;
-                     player.dashTimer = 0;
-                     player.velocityX = 0;
-                 }
+                 // if (player.velocityX > 0 && 
+                 //     player.x + player.width - player.velocityX <= platform.x // Check previous right edge
+                 //    )
+                 // {
+                 //     // player.x = platform.x - player.width; // Place player just left of platform
+                 //     // player.isDashing = false; // <- REMOVED
+                 //     // player.dashTimer = 0;      // <- REMOVED
+                 //     // player.velocityX = 0;      // <- REMOVED
+                 // }
+                 // // Check collision with right side of platform (while moving left)
+                 // else if (player.velocityX < 0 && 
+                 //          player.x - player.velocityX >= platform.x + platform.width // Check previous left edge
+                 //         )
+                 // {
+                 //     // player.x = platform.x + platform.width; // Place player just right of platform
+                 //     // player.isDashing = false; // <- REMOVED
+                 //     // player.dashTimer = 0;      // <- REMOVED
+                 //     // player.velocityX = 0;      // <- REMOVED
+                 // }
                  // Optional: Check for ceiling collision (hitting from below)
                  // else if (player.velocityY < 0 && player.y - player.velocityY >= platform.y + platform.height) { ... }
             }

@@ -156,6 +156,7 @@ let cloudSprites = []; // Array to hold loaded cloud sprites
 let clouds = []; // Array to hold active cloud objects
 let poofSprites = []; // Array to hold poof animation frames
 let activePoofs = []; // Array for active poof effect instances
+let afterImages = []; // Array for dash afterimages
 const poofSequence = [1, 0, 1, 2]; // Desired frame order (0-based indices for poofSprites)
 const poofFrameDelay = 6; // SLOWER: How many game frames each poof frame lasts (was 4)
 
@@ -747,6 +748,7 @@ function update(deltaTime) {
 
     updateClouds(); // RESTORED
     updatePoofs(); // Update poof animations
+    updateAfterImages(deltaTime); // <<< --- ADD THIS CALL
     updateAnimation();
     updateKishmishes(deltaTime); // Update kishmish logic
     checkPlayerEnemyCollisions(); // Check for collisions with kishmishes
@@ -757,12 +759,27 @@ function handleInput() {
     // Check for dash intent (unified from keyboard/touch)
     // Allow dash if intent exists, NOT currently dashing, cooldown is ready, AND (on ground OR can dash in air)
     if (wantsToDash && !player.isDashing && player.dashCooldownTimer <= 0 && (player.isOnGround || player.canDashInAir)) {
-        
+
         // If dashing in air, consume the air dash ability
         if (!player.isOnGround) {
             player.canDashInAir = false;
         }
-        
+
+        // --- Capture state for afterimages ---
+        const startX = player.x;
+        const startY = player.y;
+        const startFacingRight = player.facingRight;
+        // Determine current sprite (simplified logic, might need refinement if complex states exist during dash start)
+        let spriteName;
+        if (player.isIdle) {
+            spriteName = player.idleFrames[player.currentIdleFrame];
+        } else if (!player.isOnGround) {
+            spriteName = player.walkFrames[1]; // jump frame placeholder
+        } else {
+            spriteName = player.walkFrames[player.currentFrame]; // walk frame
+        }
+        // ---
+
         player.isDashing = true;
         player.dashCooldownTimer = player.dashCooldown; // Start cooldown
         player.canDash = false; // Keep this for potential future use (e.g., limiting total dashes)
@@ -773,6 +790,38 @@ function handleInput() {
         // dashSound.play().catch(e => console.error("Error playing dash sound:", e)); // Remove old play
         const randomDashSound = dashSounds[Math.floor(Math.random() * dashSounds.length)]; // Select random dash sound
         randomDashSound.play().catch(e => console.error("Error playing dash sound:", e)); // Play random dash sound
+
+
+        // --- Create Afterimages ---
+        const dashDistance = player.velocityX * player.dashDuration; // Approx distance covered
+        const midX = startX + dashDistance / 2;
+        const afterImageLifetimeStart = 250; // ms
+        const afterImageLifetimeMid = 450; // ms
+
+        // Add starting position afterimage
+        afterImages.push({
+            x: startX,
+            y: startY,
+            spriteName: spriteName,
+            facingRight: startFacingRight,
+            initialLife: afterImageLifetimeStart,
+            life: afterImageLifetimeStart,
+            type: 'start',
+            opacity: 0 // Will be calculated in updateAfterImages
+        });
+
+        // Add midpoint position afterimage
+        afterImages.push({
+            x: midX,
+            y: startY,
+            spriteName: spriteName,
+            facingRight: startFacingRight,
+            initialLife: afterImageLifetimeMid, // lasts longer
+            life: afterImageLifetimeMid,
+            type: 'mid',
+            opacity: 0 // Will be calculated in updateAfterImages
+        });
+        // ---
 
         // Create a poof effect instance behind the player
         if (poofSprites.length > 0) {
@@ -968,14 +1017,15 @@ function draw() {
             }
         });
 
-        // Draw Player (using world coordinates)
-        drawPlayer(); // drawPlayer already uses player.x, player.y
-
-        // Draw Poof effects (after player)
-        drawPoofs();
-
         // Draw Kishmishes
         drawKishmishes();
+
+        drawPoofs(); // Draw poofs (before player/afterimages)
+
+        drawAfterImages(); // <<< --- ADD THIS CALL (Draw echoes before main player)
+
+        // Draw Player (using world coordinates)
+        drawPlayer(); // drawPlayer already uses player.x, player.y
 
     }
     // --- End drawing world elements --- 
@@ -1607,4 +1657,64 @@ function createPoofEffect(x, y) {
             height: player.height * 0.8 
         });
     }
-} 
+}
+
+// --- ADDED: Update Afterimages ---
+function updateAfterImages(deltaTime) {
+    for (let i = afterImages.length - 1; i >= 0; i--) {
+        const img = afterImages[i];
+        img.life -= deltaTime;
+
+        // Calculate opacity based on remaining life
+        // Start fades faster than mid
+        const fadeDuration = img.type === 'start' ? img.initialLife : img.initialLife * 0.8; // Mid point starts fading later
+        const timePassed = img.initialLife - img.life;
+        const initialOpacity = img.type === 'start' ? 0.6 : 0.55; // INCREASED OPACITY (was 0.4 : 0.35)
+
+        if (img.type === 'start' || timePassed > img.initialLife * 0.2) { // Mid waits a bit before starting fade
+             img.opacity = Math.max(0, initialOpacity * (1 - (timePassed / fadeDuration)));
+        } else {
+            img.opacity = initialOpacity; // Mid holds initial opacity for a bit
+        }
+
+        // Remove if life is over
+        if (img.life <= 0) {
+            afterImages.splice(i, 1);
+        }
+    }
+}
+// ---
+
+// --- ADDED: Draw Afterimages ---
+function drawAfterImages() {
+    if (afterImages.length === 0) return;
+
+    afterImages.forEach(img => {
+        const sprite = player.sprites[img.spriteName];
+        if (sprite && img.opacity > 0) {
+            ctx.save(); // Save context before applying effects
+
+            // Apply transparency and desaturation
+            ctx.globalAlpha = img.opacity;
+            ctx.filter = 'saturate(20%) brightness(1.1)'; // Desaturate and slightly brighten
+
+            // Handle flipping based on stored facing direction
+            if (!img.facingRight) {
+                // Flip the sprite horizontally
+                ctx.translate(img.x + player.width, img.y); // Use player width for consistency
+                ctx.scale(-1, 1);
+                ctx.drawImage(sprite, 0, 0, player.width, player.height);
+            } else {
+                // Draw normally at the afterimage's world coordinates
+                ctx.drawImage(sprite, img.x, img.y, player.width, player.height);
+            }
+
+            ctx.restore(); // Restore context (resets alpha and filter)
+        }
+    });
+     // Ensure filter/alpha are reset if loop didn't run or last image was invisible
+     // (ctx.restore() handles this)
+     ctx.globalAlpha = 1.0;
+     ctx.filter = 'none';
+}
+// --- 

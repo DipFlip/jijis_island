@@ -157,8 +157,11 @@ let clouds = []; // Array to hold active cloud objects
 let poofSprites = []; // Array to hold poof animation frames
 let activePoofs = []; // Array for active poof effect instances
 let afterImages = []; // Array for dash afterimages
+let sparkSprites = []; // Array to hold spark animation frames
+let activeSparks = []; // Array for active spark effect instances
 const poofSequence = [1, 0, 1, 2]; // Desired frame order (0-based indices for poofSprites)
 const poofFrameDelay = 6; // SLOWER: How many game frames each poof frame lasts (was 4)
+const sparkFrameDelay = 2; // FASTER: How many game frames each spark frame lasts (was 5)
 
 // Kishmish enemy setup
 let kishmishSprites = {}; // Object to hold loaded kishmish sprites
@@ -181,16 +184,20 @@ const water = {
     width: levelWidth, // Water spans the level width
     height: 20
 };
-
+let bumpHeight = 15;
+let bumpDuration = 300;
+let shrinkDuration = 200;
+const hoverAmplitude = 3; // How many pixels up/down to hover
+const hoverSpeed = 0.05;  // How fast to hover
 // Collectibles setup (example)
 const collectibles = [
-    { x: 250, y: canvas.height - 242, type: 'shell', spriteIndex: 1, collected: false, width: 72, height: 72 }, // Moved onto platform 1, resized
-    { x: 500, y: canvas.height - 342, type: 'fish', spriteIndex: 1, collected: false, width: 72, height: 72 }, // Moved onto platform 2, resized
+    { x: 250, y: canvas.height - 242, type: 'shell', spriteIndex: 1, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 242, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
+    { x: 500, y: canvas.height - 342, type: 'fish', spriteIndex: 1, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 342, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
     // Add more collectibles using different sprites
-    { x: 100, y: canvas.height - 132, type: 'shell', spriteIndex: 2, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
-    { x: 350, y: canvas.height - 132, type: 'shell', spriteIndex: 3, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
-    { x: 550, y: canvas.height - 242, type: 'fish', spriteIndex: 2, collected: false, width: 72, height: 72 }, // Moved X and onto platform 1, resized
-    { x: 700, y: canvas.height - 132, type: 'fish', spriteIndex: 3, collected: false, width: 72, height: 72 }, // Kept (on ground), resized
+    { x: 100, y: canvas.height - 132, type: 'shell', spriteIndex: 2, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 132, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
+    { x: 350, y: canvas.height - 132, type: 'shell', spriteIndex: 3, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 132, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
+    { x: 550, y: canvas.height - 242, type: 'fish', spriteIndex: 2, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 242, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
+    { x: 700, y: canvas.height - 132, type: 'fish', spriteIndex: 3, collected: false, width: 72, height: 72, originalWidth: 72, originalHeight: 72, isShrinking: false, shrinkDuration: shrinkDuration, shrinkTimer: 0, currentScale: 1.0, isBumping: false, bumpStartY: canvas.height - 132, bumpHeight: bumpHeight, bumpDuration: bumpDuration, bumpTimer: 0, hoverTimer: Math.random() * Math.PI * 2, sparkleTriggered: false }, // Add sparkleTriggered
 
 ];
 
@@ -407,13 +414,15 @@ function loadSprites() {
         const cloudSpriteNames = ['cloud1', 'cloud2', 'cloud3', 'cloud4']; // RESTORED
         const poofSpriteNames = ['poof1', 'poof2', 'poof3']; // Poof sprites
         const kishmishSpriteNames = ['kishmish_walk1', 'kishmish_walk2', 'kishmish_sit1']; // Kishmish sprites
+        const sparkSpriteNames = ['spark1', 'spark2', 'spark3', 'spark4']; // Spark sprites
         const allSpriteNames = [
             ...playerSpriteNames,
             ...collectibleSpriteNames,
             ...backgroundLayerNames,
             ...cloudSpriteNames, // RESTORED
             ...poofSpriteNames, // Add poof names
-            ...kishmishSpriteNames // Add kishmish names
+            ...kishmishSpriteNames, // Add kishmish names
+            ...sparkSpriteNames // Add spark names
         ];
         let loadedCount = 0;
         const totalSprites = allSpriteNames.length;
@@ -469,6 +478,14 @@ function loadSprites() {
                     });
                 } else if (kishmishSpriteNames.includes(name)) { // Handle kishmish sprites
                     kishmishSprites[name] = img;
+                } else if (sparkSpriteNames.includes(name)) { // Handle spark sprites
+                    sparkSprites.push(img);
+                     // Keep spark sprites in order (spark1, spark2, spark3, spark4)
+                    sparkSprites.sort((a, b) => {
+                        const numA = parseInt(a.src.match(/spark(\d+)\.png$/)[1]);
+                        const numB = parseInt(b.src.match(/spark(\d+)\.png$/)[1]);
+                        return numA - numB;
+                    });
                 }
                 loadedCount++;
                 console.log(`Loaded sprite: ${name}.png (${loadedCount}/${totalSprites})`);
@@ -568,6 +585,23 @@ function updatePoofs() {
         }
     }
 }
+
+// --- ADDED: Update spark animation frames and remove finished ones ---
+function updateSparks() {
+    for (let i = activeSparks.length - 1; i >= 0; i--) {
+        const spark = activeSparks[i];
+        spark.timer++;
+        if (spark.timer >= sparkFrameDelay) {
+            spark.timer = 0;
+            spark.frameIndex++; // Increment frame index
+            // Remove spark if animation finished
+            if (spark.frameIndex >= sparkSprites.length) {
+                activeSparks.splice(i, 1);
+            }
+        }
+    }
+}
+// ---
 
 // Add a variable to track the last frame time
 let lastTime = 0;
@@ -715,17 +749,71 @@ function update(deltaTime) {
     // Collectible collision
     collectibles.forEach((item) => {
         if (!item.collected &&
+            !item.isShrinking && // Only trigger if not already shrinking
+            !item.isBumping && // Only trigger if not animating
             player.x < item.x + item.width &&
             player.x + player.width > item.x &&
             player.y < item.y + item.height &&
             player.y + player.height > item.y
         ) {
-            item.collected = true;
             score += (item.type === 'shell' ? 10 : 20);
             const randomScoreSound = scoreSounds[Math.floor(Math.random() * scoreSounds.length)];
             randomScoreSound.play().catch(e => console.error("Error playing score sound:", e));
+            // --- ADDED: Create spark effect on collection ---
+            // createSparkEffect(item.x + item.width / 2, item.y + item.height / 2);
+            // ---
+            // --- Start BUMPING animation ---
+            item.isBumping = true;
+            item.bumpStartY = item.y; // Store original Y
+            item.bumpTimer = item.bumpDuration; // Start timer
         }
     });
+
+    // --- Update collectible animations (hover, bump, shrink) ---
+    collectibles.forEach((item) => {
+        if (item.isBumping) {
+            // --- Bump Logic ---
+            item.bumpTimer -= deltaTime;
+            if (item.bumpTimer <= 0) {
+                item.isBumping = false;
+                item.y = item.bumpStartY; // Reset Y position precisely
+                // Start shrinking AFTER bumping
+                item.isShrinking = true;
+                item.shrinkTimer = item.shrinkDuration;
+                item.currentScale = 1.0;
+            } else {
+                // Calculate bump offset using a sine wave
+                const progress = 1 - (item.bumpTimer / item.bumpDuration);
+                const bumpOffset = -item.bumpHeight * Math.sin(progress * Math.PI);
+                item.y = item.bumpStartY + bumpOffset; // Apply bump relative to start Y
+                // --- Trigger sparkle effect mid-bump ---
+                if (!item.sparkleTriggered && item.bumpTimer <= item.bumpDuration * 0.1) {
+                    createSparkEffect(item.x + item.originalWidth / 4, item.y + item.originalHeight / 4); // Use original size for center calc
+                    item.sparkleTriggered = true;
+                }
+            }
+        } else if (item.isShrinking) {
+            // --- Shrink Logic ---
+            item.shrinkTimer -= deltaTime;
+            if (item.shrinkTimer <= 0) {
+                item.isShrinking = false;
+                item.collected = true; // Mark as collected
+                item.currentScale = 0;
+                item.y = item.bumpStartY; // Reset Y position firmly
+            } else {
+                // Calculate scale (linear shrink)
+                item.currentScale = Math.max(0, item.shrinkTimer / item.shrinkDuration);
+                // Ensure Y stays at the base position during shrink
+                item.y = item.bumpStartY;
+            }
+        } else if (!item.collected) {
+            // --- Idle Hover Logic ---
+            item.hoverTimer += hoverSpeed; // Use a constant speed, deltaTime might make it inconsistent
+            const hoverOffsetY = Math.sin(item.hoverTimer) * hoverAmplitude;
+            item.y = item.bumpStartY + hoverOffsetY; // Hover around the base Y
+        }
+    });
+    // ---
 
     // --- Update camera position with dead zone ---
     const deadZoneWidth = canvas.width * 0.25; // 25% of screen width
@@ -749,6 +837,7 @@ function update(deltaTime) {
     updateClouds(); // RESTORED
     updatePoofs(); // Update poof animations
     updateAfterImages(deltaTime); // <<< --- ADD THIS CALL
+    updateSparks(); // Update spark animations
     updateAnimation();
     updateKishmishes(deltaTime); // Update kishmish logic
     checkPlayerEnemyCollisions(); // Check for collisions with kishmishes
@@ -993,12 +1082,19 @@ function draw() {
                 let spriteToDraw = collectibleSprites[spriteName];
 
                 if (spriteToDraw) {
+                    const widthToDraw = item.originalWidth * item.currentScale;
+                    const heightToDraw = item.originalHeight * item.currentScale;
+                    // Calculate draw position, considering bump and centering the shrink
+                    const drawX = item.x + (item.originalWidth - widthToDraw) / 2;
+                    // Always use current item.y, and center the scaled sprite vertically around it
+                    const drawY = item.y + (item.originalHeight - heightToDraw) / 2;
+
                     ctx.drawImage(
                         spriteToDraw,
-                        item.x,
-                        item.y,
-                        item.width,
-                        item.height
+                        drawX,
+                        drawY,
+                        widthToDraw,
+                        heightToDraw
                     );
                 } else {
                     console.warn(`Sprite '${spriteName}.png' not loaded, drawing fallback.`);
@@ -1021,7 +1117,7 @@ function draw() {
         drawKishmishes();
 
         drawPoofs(); // Draw poofs (before player/afterimages)
-
+        drawSparks(); // Draw spark effects
         drawAfterImages(); // <<< --- ADD THIS CALL (Draw echoes before main player)
 
         // Draw Player (using world coordinates)
@@ -1638,9 +1734,12 @@ function checkPlayerEnemyCollisions() {
             }
 
             // Check 3: Player is hurt (collided but didn't jump on or dash)
-            console.log("Player hit by Kishmish!");
-            gameOver("Kishmish caught Jiji!");
-            return; // Game over, no need to check further collisions
+            // Skip game over if player is dashing (already handled dash kill)
+            if (!player.isDashing) {
+                console.log("Player hit by Kishmish!");
+                gameOver("Kishmish caught Jiji!");
+                return; // Game over, no need to check further collisions
+            }
         }
     }
 }
@@ -1718,3 +1817,35 @@ function drawAfterImages() {
      ctx.filter = 'none';
 }
 // --- 
+
+// --- ADDED: Function to draw active spark effects ---
+function drawSparks() {
+    if (activeSparks.length === 0 || sparkSprites.length === 0) return;
+
+    activeSparks.forEach(spark => {
+        const frame = sparkSprites[spark.frameIndex];
+        if (frame) {
+            // Draw centered around spark.x, spark.y
+            const drawWidth = frame.naturalWidth * 0.15; // REDUCED EVEN MORE: Optional: Scale spark size (was 0.2)
+            const drawHeight = frame.naturalHeight * 0.15; // REDUCED EVEN MORE: Optional: Scale spark size (was 0.2)
+            const drawX = spark.x - drawWidth / 2;
+            const drawY = spark.y - drawHeight / 2;
+            ctx.drawImage(frame, drawX, drawY, drawWidth, drawHeight);
+        }
+    });
+}
+// ---
+
+// --- ADDED: Helper function to create a spark effect instance ---
+function createSparkEffect(x, y) {
+    if (sparkSprites.length > 0) {
+        activeSparks.push({
+            x: x, // Store center X
+            y: y, // Store center Y
+            frameIndex: 0, // Start at first frame
+            timer: 0,
+            // width/height not needed for drawing if using naturalWidth/Height
+        });
+    }
+}
+// ---

@@ -859,14 +859,16 @@ function handleInput() {
         const startY = player.y;
         const startFacingRight = player.facingRight;
         // Determine current sprite (simplified logic, might need refinement if complex states exist during dash start)
-        let spriteName;
-        if (player.isIdle) {
-            spriteName = player.idleFrames[player.currentIdleFrame];
-        } else if (!player.isOnGround) {
-            spriteName = player.walkFrames[1]; // jump frame placeholder
-        } else {
-            spriteName = player.walkFrames[player.currentFrame]; // walk frame
-        }
+        // let spriteName;
+        // if (player.isIdle) {
+        //     spriteName = player.idleFrames[player.currentIdleFrame];
+        // } else if (!player.isOnGround) {
+        //     spriteName = player.walkFrames[1]; // jump frame placeholder
+        // } else {
+        //     spriteName = player.walkFrames[player.currentFrame]; // walk frame
+        // }
+        // --- ALWAYS use walk2 for dash afterimages ---
+        const spriteName = 'walk2'; 
         // ---
 
         player.isDashing = true;
